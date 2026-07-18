@@ -10,7 +10,7 @@ import {
   Delete02Icon,
   PinOffIcon,
 } from "@hugeicons/core-free-icons";
-import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { GradientAvatar } from "@/components/composite/GradientAvatar";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -60,10 +60,13 @@ function CommentsSection({ postId }: { postId: string }) {
       ) : (
         comments?.map((comment) => (
           <div key={comment.id} className="flex items-start gap-2.5">
-            <Avatar size="sm">
-              <AvatarImage src={comment.author.avatarUrl ?? undefined} alt={comment.author.firstName} />
-              <AvatarFallback>{initials(comment.author.firstName, comment.author.lastName)}</AvatarFallback>
-            </Avatar>
+            <GradientAvatar
+              size="sm"
+              seed={comment.author.id}
+              src={comment.author.avatarUrl}
+              initials={initials(comment.author.firstName, comment.author.lastName)}
+              alt={comment.author.firstName}
+            />
             <div className="flex-1 rounded-xl bg-muted px-3 py-2">
               <p className="text-xs font-medium">
                 {comment.author.firstName} {comment.author.lastName}
@@ -121,10 +124,12 @@ export function PostCard({ post, canManage }: { post: Post; canManage: boolean }
       <CardContent className="space-y-3">
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-center gap-2.5">
-            <Avatar>
-              <AvatarImage src={post.author.avatarUrl ?? undefined} alt={post.author.firstName} />
-              <AvatarFallback>{initials(post.author.firstName, post.author.lastName)}</AvatarFallback>
-            </Avatar>
+            <GradientAvatar
+              seed={post.author.id}
+              src={post.author.avatarUrl}
+              initials={initials(post.author.firstName, post.author.lastName)}
+              alt={post.author.firstName}
+            />
             <div>
               <p className="text-sm font-medium">
                 {post.author.firstName} {post.author.lastName}

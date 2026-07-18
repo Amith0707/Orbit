@@ -5,8 +5,15 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useWeeklyDigest } from "@/features/ai-digest/hooks/useDigest";
 
+interface DigestStats {
+  suggestedCoworkers?: unknown[];
+  recommendedCommunities?: unknown[];
+  upcomingEvents?: unknown[];
+}
+
 export default function WeeklyDigestPage() {
   const { data: digest, isPending } = useWeeklyDigest();
+  const stats = (digest?.stats ?? {}) as DigestStats;
 
   return (
     <div className="mx-auto max-w-2xl space-y-6 p-6">
@@ -15,12 +22,12 @@ export default function WeeklyDigestPage() {
           <HugeiconsIcon icon={SparklesIcon} strokeWidth={2} className="size-4" />
         </div>
         <div>
-          <h1 className="font-heading text-xl font-semibold">Your Weekly Digest</h1>
-          {digest && (
-            <p className="text-sm text-muted-foreground">
-              {format(new Date(digest.weekStart), "MMM d")} – {format(new Date(digest.weekEnd), "MMM d")}
-            </p>
-          )}
+          <h1 className="font-heading text-2xl">This week's sky</h1>
+          <p className="text-sm text-muted-foreground">
+            {digest
+              ? `${format(new Date(digest.weekStart), "MMM d")} – ${format(new Date(digest.weekEnd), "MMM d")}`
+              : "What moved across your sky while you were away."}
+          </p>
         </div>
       </div>
 
@@ -33,11 +40,38 @@ export default function WeeklyDigestPage() {
           </CardContent>
         </Card>
       ) : (
-        <Card className="border-ai-accent-border/60 bg-gradient-to-br from-ai-accent-soft to-transparent">
-          <CardContent>
-            <p className="text-sm leading-relaxed whitespace-pre-wrap text-foreground/90">{digest?.narrative}</p>
-          </CardContent>
-        </Card>
+        <>
+          <Card className="border-ai-accent-border/60 bg-gradient-to-br from-ai-accent-soft to-transparent">
+            <CardContent>
+              <p className="text-sm leading-relaxed whitespace-pre-wrap text-foreground/90">{digest?.narrative}</p>
+            </CardContent>
+          </Card>
+
+          <div className="grid grid-cols-3 gap-4">
+            <Card>
+              <CardContent>
+                <p className="font-heading text-2xl text-primary">+{stats.suggestedCoworkers?.length ?? 0}</p>
+                <p className="mt-1 text-xs text-muted-foreground">new stars near you</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent>
+                <p className="font-heading text-2xl" style={{ color: "#9fe0ff" }}>
+                  {stats.recommendedCommunities?.length ?? 0}
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">constellations to explore</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent>
+                <p className="font-heading text-2xl" style={{ color: "#8fe0a8" }}>
+                  {stats.upcomingEvents?.length ?? 0}
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">gatherings on the horizon</p>
+              </CardContent>
+            </Card>
+          </div>
+        </>
       )}
     </div>
   );

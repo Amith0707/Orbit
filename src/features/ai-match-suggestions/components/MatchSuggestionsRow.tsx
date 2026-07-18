@@ -12,7 +12,7 @@ export function MatchSuggestionsRow() {
     <section className="space-y-3">
       <div className="flex items-center gap-2">
         <HugeiconsIcon icon={SparklesIcon} strokeWidth={2} className="size-4 text-ai-accent" />
-        <h2 className="font-heading text-sm font-semibold">Coworkers you might click with</h2>
+        <h2 className="font-heading text-lg">Stars to connect</h2>
       </div>
       {isPending ? (
         <div className="flex gap-4 overflow-hidden">

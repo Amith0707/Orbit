@@ -14,7 +14,7 @@ export function BuddyLauncher() {
         type="button"
         onClick={toggle}
         aria-label={isOpen ? "Close AI Buddy" : "Open AI Buddy"}
-        className="fixed right-6 bottom-6 z-50 flex size-14 items-center justify-center rounded-full bg-ai-accent text-ai-accent-foreground shadow-lg"
+        className="orbit-glow-icon fixed right-6 bottom-6 z-50 flex size-14 items-center justify-center rounded-full text-primary"
         animate={reduceMotion ? {} : { scale: [1, 1.05, 1] }}
         transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
         whileTap={{ scale: 0.92 }}

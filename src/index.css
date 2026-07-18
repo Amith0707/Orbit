@@ -1,89 +1,97 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
-@import "@fontsource-variable/figtree";
+@import "@fontsource-variable/hanken-grotesk";
+@import "@fontsource/marcellus";
+@import "@fontsource-variable/space-grotesk";
 
 @custom-variant dark (&:is(.dark *));
 
+/* "Orbit" cosmic theme: deep space navy + gold, used for both light and dark
+   mode since the design has no separate light variant. */
 :root {
-  color-scheme: light dark;
+  color-scheme: dark;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --input: oklch(0.922 0 0);
-  --border: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+  --background: #070a16;
+  --foreground: #e9ecf6;
+  --card: #0d1226;
+  --card-foreground: #e9ecf6;
+  --popover: #0d1226;
+  --popover-foreground: #e9ecf6;
+  --primary: #e6cf8f;
+  --primary-foreground: #0a0e1e;
+  --secondary: #171b34;
+  --secondary-foreground: #e9ecf6;
+  --muted: #141830;
+  --muted-foreground: #868aa0;
+  --accent: #171b34;
+  --accent-foreground: #e9ecf6;
+  --destructive: oklch(0.704 0.191 22.216);
+  --input: rgba(255, 255, 255, 0.05);
+  --border: rgba(255, 255, 255, 0.08);
+  --ring: rgba(230, 207, 143, 0.5);
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --radius: 0.75rem;
+  --sidebar: rgba(10, 14, 30, 0.72);
+  --sidebar-foreground: #e9ecf6;
+  --sidebar-primary: #e6cf8f;
+  --sidebar-primary-foreground: #0a0e1e;
+  --sidebar-accent: rgba(255, 255, 255, 0.05);
+  --sidebar-accent-foreground: #e9ecf6;
+  --sidebar-active: rgba(230, 207, 143, 0.14);
+  --sidebar-active-foreground: #e6cf8f;
+  --sidebar-border: rgba(255, 255, 255, 0.06);
+  --sidebar-ring: rgba(230, 207, 143, 0.5);
 
   /* AI-touched surfaces only: Buddy launcher, "AI suggested" chips, recommendation strips */
-  --ai-accent: oklch(0.58 0.19 296);
-  --ai-accent-foreground: oklch(0.99 0 0);
-  --ai-accent-soft: oklch(0.58 0.19 296 / 0.1);
-  --ai-accent-border: oklch(0.58 0.19 296 / 0.35);
+  --ai-accent: oklch(0.75 0.16 296);
+  --ai-accent-foreground: oklch(0.145 0 0);
+  --ai-accent-soft: oklch(0.75 0.16 296 / 0.15);
+  --ai-accent-border: oklch(0.75 0.16 296 / 0.4);
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
+  --background: #070a16;
+  --foreground: #e9ecf6;
+  --card: #0d1226;
+  --card-foreground: #e9ecf6;
+  --popover: #0d1226;
+  --popover-foreground: #e9ecf6;
+  --primary: #e6cf8f;
+  --primary-foreground: #0a0e1e;
+  --secondary: #171b34;
+  --secondary-foreground: #e9ecf6;
+  --muted: #141830;
+  --muted-foreground: #868aa0;
+  --accent: #171b34;
+  --accent-foreground: #e9ecf6;
   --destructive: oklch(0.704 0.191 22.216);
-  --input: oklch(1 0 0 / 15%);
-  --border: oklch(1 0 0 / 10%);
-  --ring: oklch(0.556 0 0);
+  --input: rgba(255, 255, 255, 0.05);
+  --border: rgba(255, 255, 255, 0.08);
+  --ring: rgba(230, 207, 143, 0.5);
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --sidebar: rgba(10, 14, 30, 0.72);
+  --sidebar-foreground: #e9ecf6;
+  --sidebar-primary: #e6cf8f;
+  --sidebar-primary-foreground: #0a0e1e;
+  --sidebar-accent: rgba(255, 255, 255, 0.05);
+  --sidebar-accent-foreground: #e9ecf6;
+  --sidebar-active: rgba(230, 207, 143, 0.14);
+  --sidebar-active-foreground: #e6cf8f;
+  --sidebar-border: rgba(255, 255, 255, 0.06);
+  --sidebar-ring: rgba(230, 207, 143, 0.5);
 
   --ai-accent: oklch(0.75 0.16 296);
   --ai-accent-foreground: oklch(0.145 0 0);
@@ -92,12 +100,15 @@
 }
 
 @theme inline {
-  --font-heading: var(--font-sans);
-  --font-sans: "Figtree Variable", sans-serif;
+  --font-sans: "Hanken Grotesk Variable", sans-serif;
+  --font-heading: "Marcellus", serif;
+  --font-eyebrow: "Space Grotesk Variable", sans-serif;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-active-foreground: var(--sidebar-active-foreground);
+  --color-sidebar-active: var(--sidebar-active);
   --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
   --color-sidebar-foreground: var(--sidebar-foreground);
@@ -145,8 +156,73 @@
   body {
     @apply bg-background text-foreground;
     margin: 0;
+    background-image:
+      radial-gradient(1.4px 1.4px at 12% 18%, #fff, transparent),
+      radial-gradient(1px 1px at 62% 12%, rgba(255, 255, 255, 0.8), transparent),
+      radial-gradient(1px 1px at 33% 62%, rgba(255, 255, 255, 0.55), transparent),
+      radial-gradient(1.4px 1.4px at 82% 24%, #ffe9b0, transparent),
+      radial-gradient(1px 1px at 51% 82%, rgba(255, 255, 255, 0.6), transparent),
+      radial-gradient(1px 1px at 22% 88%, rgba(255, 255, 255, 0.5), transparent),
+      radial-gradient(1px 1px at 92% 66%, rgba(255, 255, 255, 0.55), transparent),
+      radial-gradient(1px 1px at 74% 78%, rgba(255, 255, 255, 0.45), transparent);
+    background-attachment: fixed;
   }
   html {
     @apply font-sans;
   }
+}
+
+@keyframes orbit-twinkle {
+  0%,
+  100% {
+    opacity: 0.28;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes orbit-draw {
+  from {
+    stroke-dashoffset: 640;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes orbit-screen-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.font-eyebrow {
+  font-family: var(--font-eyebrow);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.orbit-glow-icon {
+  background: #0d1428;
+  border: 1px solid rgba(230, 207, 143, 0.4);
+  box-shadow: 0 0 24px rgba(230, 207, 143, 0.3);
+}
+
+.orbit-twinkle {
+  animation: orbit-twinkle 4s ease-in-out infinite;
+}
+
+.orbit-draw {
+  stroke-dasharray: 640;
+  animation: orbit-draw 1.5s ease forwards;
+}
+
+.orbit-screen-in {
+  animation: orbit-screen-in 0.4s ease both;
 }

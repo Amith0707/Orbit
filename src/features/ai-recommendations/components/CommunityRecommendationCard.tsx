@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { RecommendationCardShell } from "@/components/composite/RecommendationCardShell";
 import { useJoinCommunity } from "@/features/communities/hooks/useCommunities";
 import { useDismissCommunityRecommendation } from "../hooks/useRecommendations";
+import { getAvatarGradient } from "@/lib/gradientAvatar";
 import type { CommunityRecommendation } from "../api/recommendations";
 
 export function CommunityRecommendationCard({ recommendation }: { recommendation: CommunityRecommendation }) {
@@ -22,8 +23,13 @@ export function CommunityRecommendationCard({ recommendation }: { recommendation
         >
           <RecommendationCardShell
             media={
-              <div className="flex h-20 items-center justify-center bg-gradient-to-br from-ai-accent-soft to-muted">
-                <HugeiconsIcon icon={UserGroupIcon} strokeWidth={1.5} className="size-8 text-ai-accent" />
+              <div className="flex h-20 items-center justify-center bg-gradient-to-br from-secondary to-background">
+                <div
+                  className="flex size-12 items-center justify-center rounded-full text-white"
+                  style={{ background: getAvatarGradient(recommendation.communityId) }}
+                >
+                  <HugeiconsIcon icon={UserGroupIcon} strokeWidth={1.5} className="size-5" />
+                </div>
               </div>
             }
             title={recommendation.name}
