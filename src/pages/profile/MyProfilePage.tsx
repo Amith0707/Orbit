@@ -12,8 +12,10 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TagToggleGroup } from "@/components/composite/TagToggleGroup";
+import { AddTagInput } from "@/components/composite/AddTagInput";
 import { useMyProfile, useUpdateMyProfile, useUploadAvatar } from "@/features/profile/hooks/useProfile";
-import { useTags, useDepartments } from "@/features/meta/hooks/useMeta";
+import { useTags, useCreateTag, useDepartments } from "@/features/meta/hooks/useMeta";
+import type { TagKind } from "@/features/meta/api/meta";
 import { getApiErrorMessage } from "@/lib/http/apiClient";
 import { MyCommunitiesCard } from "@/features/communities/components/MyCommunitiesCard";
 
@@ -35,6 +37,7 @@ export default function MyProfilePage() {
   const { data: departments } = useDepartments();
   const updateProfile = useUpdateMyProfile();
   const uploadAvatar = useUploadAvatar();
+  const createTag = useCreateTag();
 
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
 
@@ -67,6 +70,18 @@ export default function MyProfilePage() {
       const base = prev.length > 0 || !profile ? prev : effectiveSelectedIds;
       return base.includes(tagId) ? base.filter((id) => id !== tagId) : [...base, tagId];
     });
+  };
+
+  const handleAddTag = async (kind: TagKind, name: string) => {
+    try {
+      const tag = await createTag.mutateAsync({ kind, name });
+      setSelectedTagIds((prev) => {
+        const base = prev.length > 0 || !profile ? prev : effectiveSelectedIds;
+        return base.includes(tag.id) ? base : [...base, tag.id];
+      });
+    } catch (err) {
+      toast.error(getApiErrorMessage(err));
+    }
   };
 
   const onSubmit = async (values: FormValues) => {
@@ -206,14 +221,29 @@ export default function MyProfilePage() {
             <div className="space-y-1.5">
               <Label>Interests</Label>
               <TagToggleGroup tags={interestTags ?? []} selectedIds={effectiveSelectedIds} onToggle={toggleTag} />
+              <AddTagInput
+                placeholder="Add an interest..."
+                isAdding={createTag.isPending}
+                onAdd={(name) => handleAddTag("interest", name)}
+              />
             </div>
             <div className="space-y-1.5">
               <Label>Hobbies</Label>
               <TagToggleGroup tags={hobbyTags ?? []} selectedIds={effectiveSelectedIds} onToggle={toggleTag} />
+              <AddTagInput
+                placeholder="Add a hobby..."
+                isAdding={createTag.isPending}
+                onAdd={(name) => handleAddTag("hobby", name)}
+              />
             </div>
             <div className="space-y-1.5">
               <Label>Skills</Label>
               <TagToggleGroup tags={skillTags ?? []} selectedIds={effectiveSelectedIds} onToggle={toggleTag} />
+              <AddTagInput
+                placeholder="Add a skill..."
+                isAdding={createTag.isPending}
+                onAdd={(name) => handleAddTag("skill", name)}
+              />
             </div>
           </CardContent>
         </Card>

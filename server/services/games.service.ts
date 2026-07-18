@@ -1,12 +1,14 @@
 import { Chess } from "chess.js";
 import * as gamesRepo from "../repositories/games.repository.js";
 import * as ticTacToe from "./games/tic-tac-toe.js";
+import * as rps from "./games/rock-paper-scissors.js";
+import * as connectFour from "./games/connect-four.js";
 import { pickAiMove as pickChessAiMove } from "./games/chess-ai.js";
 import { AppError } from "../utils/app-error.js";
 import { notifyUser } from "./notifications.service.js";
 import type { MatchRow } from "../repositories/games.repository.js";
 
-export type GameKey = "chess" | "tic_tac_toe";
+export type GameKey = "chess" | "tic_tac_toe" | "rock_paper_scissors" | "connect_four";
 
 function toMatchDTO(match: MatchRow, gameKey: string) {
   return {
@@ -25,7 +27,9 @@ function toMatchDTO(match: MatchRow, gameKey: string) {
 
 function initialStateFor(gameKey: GameKey): Record<string, unknown> {
   if (gameKey === "chess") return { fen: new Chess().fen(), pgn: "" };
-  return ticTacToe.initialState() as unknown as Record<string, unknown>;
+  if (gameKey === "tic_tac_toe") return ticTacToe.initialState() as unknown as Record<string, unknown>;
+  if (gameKey === "rock_paper_scissors") return rps.initialState() as unknown as Record<string, unknown>;
+  return connectFour.initialState() as unknown as Record<string, unknown>;
 }
 
 export async function createMatch(userId: string, gameKey: GameKey, mode: "pvp" | "pvai") {
@@ -106,6 +110,64 @@ export async function makeTicTacToeMove(matchId: string, userId: string, cell: n
 
   await gamesRepo.updateMatchState(matchId, state as unknown as Record<string, unknown>);
   return toMatchDTO({ ...match, state: state as unknown as Record<string, unknown> }, "tic_tac_toe");
+}
+
+export async function makeRockPaperScissorsMove(matchId: string, userId: string, choice: rps.Choice) {
+  const match = await loadMatchForPlayer(matchId, userId);
+  if (match.game_key !== "rock_paper_scissors") throw AppError.badRequest("This match is not rock paper scissors");
+  if (match.status !== "in_progress") throw AppError.badRequest("This match has already ended");
+
+  let state = match.state as unknown as rps.RpsState;
+  try {
+    state = rps.applyChoice(state, state.turn, choice);
+  } catch (err) {
+    throw AppError.badRequest(err instanceof Error ? err.message : "Invalid move");
+  }
+
+  // Mirrors the tic-tac-toe pattern: the human always plays "player one," so once their
+  // choice flips the turn to "player two," the AI immediately plays that side in pvai mode.
+  if (match.mode === "pvai" && state.turn === "player_two") {
+    state = rps.applyChoice(state, "player_two", rps.pickAiChoice());
+  }
+
+  const winner = rps.checkMatchWinner(state);
+  if (winner) {
+    const result = winner === "draw" ? "draw" : winner === "player_one" ? "player_one_win" : "player_two_win";
+    return finishMatch(matchId, "rock_paper_scissors", result, state as unknown as Record<string, unknown>, match.player_one_id);
+  }
+
+  await gamesRepo.updateMatchState(matchId, state as unknown as Record<string, unknown>);
+  return toMatchDTO({ ...match, state: state as unknown as Record<string, unknown> }, "rock_paper_scissors");
+}
+
+export async function makeConnectFourMove(matchId: string, userId: string, column: number) {
+  const match = await loadMatchForPlayer(matchId, userId);
+  if (match.game_key !== "connect_four") throw AppError.badRequest("This match is not connect four");
+  if (match.status !== "in_progress") throw AppError.badRequest("This match has already ended");
+
+  let state = match.state as unknown as connectFour.ConnectFourState;
+  const humanDisc = state.turn;
+  try {
+    state = connectFour.applyMove(state, column, humanDisc);
+  } catch (err) {
+    throw AppError.badRequest(err instanceof Error ? err.message : "Invalid move");
+  }
+
+  let winner = connectFour.checkWinner(state.board);
+
+  if (!winner && match.mode === "pvai") {
+    const aiColumn = connectFour.pickAiMove(state);
+    state = connectFour.applyMove(state, aiColumn, state.turn);
+    winner = connectFour.checkWinner(state.board);
+  }
+
+  if (winner) {
+    const result = winner === "draw" ? "draw" : winner === "R" ? "player_one_win" : "player_two_win";
+    return finishMatch(matchId, "connect_four", result, state as unknown as Record<string, unknown>, match.player_one_id);
+  }
+
+  await gamesRepo.updateMatchState(matchId, state as unknown as Record<string, unknown>);
+  return toMatchDTO({ ...match, state: state as unknown as Record<string, unknown> }, "connect_four");
 }
 
 export async function makeChessMove(matchId: string, userId: string, move: { from: string; to: string; promotion?: string }) {

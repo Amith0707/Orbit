@@ -1,6 +1,6 @@
 import { api } from "@/lib/http/apiClient";
 
-export type GameKey = "chess" | "tic_tac_toe";
+export type GameKey = "chess" | "tic_tac_toe" | "rock_paper_scissors" | "connect_four";
 export type GameMode = "pvp" | "pvai";
 
 export interface TicTacToeState {
@@ -11,6 +11,27 @@ export interface TicTacToeState {
 export interface ChessState {
   fen: string;
   pgn: string;
+}
+
+export type RpsChoice = "rock" | "paper" | "scissors";
+
+export interface RpsRound {
+  playerOneChoice: RpsChoice;
+  playerTwoChoice: RpsChoice;
+  winner: "player_one" | "player_two" | "tie";
+}
+
+export interface RpsState {
+  turn: "player_one" | "player_two";
+  pendingChoice: RpsChoice | null;
+  rounds: RpsRound[];
+  playerOneScore: number;
+  playerTwoScore: number;
+}
+
+export interface ConnectFourState {
+  board: ("R" | "Y" | null)[];
+  turn: "R" | "Y";
 }
 
 export interface Match<TState = Record<string, unknown>> {
@@ -43,6 +64,16 @@ export async function makeTicTacToeMove(matchId: string, cell: number): Promise<
 
 export async function makeChessMove(matchId: string, from: string, to: string, promotion?: string): Promise<Match<ChessState>> {
   const { data } = await api.post<{ match: Match<ChessState> }>(`/games/chess/matches/${matchId}/move`, { from, to, promotion });
+  return data.match;
+}
+
+export async function makeRpsMove(matchId: string, choice: RpsChoice): Promise<Match<RpsState>> {
+  const { data } = await api.post<{ match: Match<RpsState> }>(`/games/rock_paper_scissors/matches/${matchId}/move`, { choice });
+  return data.match;
+}
+
+export async function makeConnectFourMove(matchId: string, column: number): Promise<Match<ConnectFourState>> {
+  const { data } = await api.post<{ match: Match<ConnectFourState> }>(`/games/connect_four/matches/${matchId}/move`, { column });
   return data.match;
 }
 
