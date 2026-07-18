@@ -1,4 +1,3 @@
-import { pool } from "../client.js";
 import { findUserByEmail, createUser, updatePasswordAndPromote } from "../../repositories/users.repository.js";
 import { hashPassword } from "../../utils/password.js";
 
@@ -56,11 +55,7 @@ async function run() {
   console.log(`Created administrator account: ${user.email}`);
 }
 
-run()
-  .catch((err) => {
-    console.error("Failed to seed admin:", err);
-    process.exitCode = 1;
-  })
-  .finally(() => {
-    void pool.end();
-  });
+run().catch((err) => {
+  console.error("Failed to seed admin:", err);
+  process.exitCode = 1;
+});

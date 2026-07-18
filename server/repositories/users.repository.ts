@@ -1,4 +1,4 @@
-import { query } from "../db/client.js";
+import { supabase, unwrap } from "../db/supabase-client.js";
 import type { Role } from "../types/express.js";
 
 export interface UserRow {
@@ -21,23 +21,19 @@ export interface UserRow {
   updated_at: string;
 }
 
-const USER_COLUMNS = `
-  id, email, password_hash, first_name, last_name, avatar_url, role,
-  department_id, job_title, bio, location, availability, hire_date,
-  is_active, last_login_at, created_at, updated_at
-`;
+const USER_COLUMNS =
+  "id, email, password_hash, first_name, last_name, avatar_url, role, department_id, job_title, bio, location, availability, hire_date, is_active, last_login_at, created_at, updated_at";
 
 export async function findUserByEmail(email: string): Promise<UserRow | null> {
-  const result = await query<UserRow>(
-    `SELECT ${USER_COLUMNS} FROM users WHERE email = $1`,
-    [email.trim().toLowerCase()]
-  );
-  return result.rows[0] ?? null;
+  const rows = unwrap(
+    await supabase.from("users").select(USER_COLUMNS).eq("email", email.trim().toLowerCase())
+  ) as unknown as UserRow[];
+  return rows[0] ?? null;
 }
 
 export async function findUserById(id: string): Promise<UserRow | null> {
-  const result = await query<UserRow>(`SELECT ${USER_COLUMNS} FROM users WHERE id = $1`, [id]);
-  return result.rows[0] ?? null;
+  const rows = unwrap(await supabase.from("users").select(USER_COLUMNS).eq("id", id)) as unknown as UserRow[];
+  return rows[0] ?? null;
 }
 
 export async function createUser(input: {
@@ -47,34 +43,45 @@ export async function createUser(input: {
   lastName: string;
   role?: Role;
 }): Promise<UserRow> {
-  const result = await query<UserRow>(
-    `INSERT INTO users (email, password_hash, first_name, last_name, role)
-     VALUES ($1, $2, $3, $4, $5)
-     RETURNING ${USER_COLUMNS}`,
-    [input.email.trim().toLowerCase(), input.passwordHash, input.firstName, input.lastName, input.role ?? "employee"]
-  );
-  return result.rows[0];
+  const rows = unwrap(
+    await supabase
+      .from("users")
+      .insert({
+        email: input.email.trim().toLowerCase(),
+        password_hash: input.passwordHash,
+        first_name: input.firstName,
+        last_name: input.lastName,
+        role: input.role ?? "employee",
+      })
+      .select(USER_COLUMNS)
+  ) as unknown as UserRow[];
+  return rows[0];
 }
 
 export async function promoteUserToAdmin(email: string): Promise<UserRow | null> {
-  const result = await query<UserRow>(
-    `UPDATE users SET role = 'administrator', updated_at = now() WHERE email = $1 RETURNING ${USER_COLUMNS}`,
-    [email.trim().toLowerCase()]
-  );
-  return result.rows[0] ?? null;
+  const rows = unwrap(
+    await supabase
+      .from("users")
+      .update({ role: "administrator", updated_at: new Date().toISOString() })
+      .eq("email", email.trim().toLowerCase())
+      .select(USER_COLUMNS)
+  ) as unknown as UserRow[];
+  return rows[0] ?? null;
 }
 
 export async function updatePasswordAndPromote(email: string, passwordHash: string): Promise<UserRow | null> {
-  const result = await query<UserRow>(
-    `UPDATE users SET password_hash = $2, role = 'administrator', updated_at = now()
-     WHERE email = $1 RETURNING ${USER_COLUMNS}`,
-    [email.trim().toLowerCase(), passwordHash]
-  );
-  return result.rows[0] ?? null;
+  const rows = unwrap(
+    await supabase
+      .from("users")
+      .update({ password_hash: passwordHash, role: "administrator", updated_at: new Date().toISOString() })
+      .eq("email", email.trim().toLowerCase())
+      .select(USER_COLUMNS)
+  ) as unknown as UserRow[];
+  return rows[0] ?? null;
 }
 
 export async function touchLastLogin(userId: string): Promise<void> {
-  await query(`UPDATE users SET last_login_at = now() WHERE id = $1`, [userId]);
+  unwrap(await supabase.from("users").update({ last_login_at: new Date().toISOString() }).eq("id", userId));
 }
 
 export interface UpdateProfileInput {
@@ -89,32 +96,20 @@ export interface UpdateProfileInput {
 }
 
 export async function updateUserProfile(userId: string, input: UpdateProfileInput): Promise<UserRow> {
-  const result = await query<UserRow>(
-    `UPDATE users SET
-       first_name = COALESCE($2, first_name),
-       last_name = COALESCE($3, last_name),
-       avatar_url = COALESCE($4, avatar_url),
-       department_id = COALESCE($5, department_id),
-       job_title = COALESCE($6, job_title),
-       bio = COALESCE($7, bio),
-       location = COALESCE($8, location),
-       availability = COALESCE($9, availability),
-       updated_at = now()
-     WHERE id = $1
-     RETURNING ${USER_COLUMNS}`,
-    [
-      userId,
-      input.firstName,
-      input.lastName,
-      input.avatarUrl,
-      input.departmentId,
-      input.jobTitle,
-      input.bio,
-      input.location,
-      input.availability,
-    ]
-  );
-  return result.rows[0];
+  const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  if (input.firstName !== undefined) patch.first_name = input.firstName;
+  if (input.lastName !== undefined) patch.last_name = input.lastName;
+  if (input.avatarUrl !== undefined) patch.avatar_url = input.avatarUrl;
+  if (input.departmentId !== undefined) patch.department_id = input.departmentId;
+  if (input.jobTitle !== undefined) patch.job_title = input.jobTitle;
+  if (input.bio !== undefined) patch.bio = input.bio;
+  if (input.location !== undefined) patch.location = input.location;
+  if (input.availability !== undefined) patch.availability = input.availability;
+
+  const rows = unwrap(
+    await supabase.from("users").update(patch).eq("id", userId).select(USER_COLUMNS)
+  ) as unknown as UserRow[];
+  return rows[0];
 }
 
 export interface ListUsersFilters {
@@ -126,54 +121,44 @@ export interface ListUsersFilters {
 }
 
 export async function listUsers(filters: ListUsersFilters): Promise<{ rows: UserRow[]; total: number }> {
-  const conditions: string[] = [];
-  const params: unknown[] = [];
+  const rows = unwrap(
+    await supabase.rpc("list_users", {
+      p_search: filters.search ? `%${filters.search.toLowerCase()}%` : null,
+      p_role: filters.role ?? null,
+      p_is_active: filters.isActive ?? null,
+      p_limit: filters.limit,
+      p_offset: filters.offset,
+    })
+  ) as (UserRow & { total_count: number })[];
 
-  if (filters.search) {
-    params.push(`%${filters.search.toLowerCase()}%`);
-    conditions.push(
-      `(LOWER(first_name || ' ' || last_name) LIKE $${params.length} OR LOWER(email) LIKE $${params.length})`
-    );
-  }
-  if (filters.role) {
-    params.push(filters.role);
-    conditions.push(`role = $${params.length}`);
-  }
-  if (filters.isActive !== undefined) {
-    params.push(filters.isActive);
-    conditions.push(`is_active = $${params.length}`);
-  }
-
-  const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
-
-  const countResult = await query<{ count: string }>(
-    `SELECT COUNT(*) FROM users ${whereClause}`,
-    params
-  );
-
-  params.push(filters.limit, filters.offset);
-  const rowsResult = await query<UserRow>(
-    `SELECT ${USER_COLUMNS} FROM users ${whereClause}
-     ORDER BY created_at DESC
-     LIMIT $${params.length - 1} OFFSET $${params.length}`,
-    params
-  );
-
-  return { rows: rowsResult.rows, total: Number.parseInt(countResult.rows[0].count, 10) };
+  return {
+    rows: rows.map((row) => {
+      const { total_count, ...rest } = row;
+      void total_count;
+      return rest;
+    }),
+    total: rows[0]?.total_count ?? 0,
+  };
 }
 
 export async function setUserActive(userId: string, isActive: boolean): Promise<UserRow | null> {
-  const result = await query<UserRow>(
-    `UPDATE users SET is_active = $2, updated_at = now() WHERE id = $1 RETURNING ${USER_COLUMNS}`,
-    [userId, isActive]
-  );
-  return result.rows[0] ?? null;
+  const rows = unwrap(
+    await supabase
+      .from("users")
+      .update({ is_active: isActive, updated_at: new Date().toISOString() })
+      .eq("id", userId)
+      .select(USER_COLUMNS)
+  ) as unknown as UserRow[];
+  return rows[0] ?? null;
 }
 
 export async function setUserRole(userId: string, role: Role): Promise<UserRow | null> {
-  const result = await query<UserRow>(
-    `UPDATE users SET role = $2, updated_at = now() WHERE id = $1 RETURNING ${USER_COLUMNS}`,
-    [userId, role]
-  );
-  return result.rows[0] ?? null;
+  const rows = unwrap(
+    await supabase
+      .from("users")
+      .update({ role, updated_at: new Date().toISOString() })
+      .eq("id", userId)
+      .select(USER_COLUMNS)
+  ) as unknown as UserRow[];
+  return rows[0] ?? null;
 }

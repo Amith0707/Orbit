@@ -1,4 +1,4 @@
-import { query } from "../db/client.js";
+import { supabase, unwrap } from "../db/supabase-client.js";
 
 export interface GameRow {
   id: string;
@@ -7,8 +7,8 @@ export interface GameRow {
 }
 
 export async function findGameByKey(key: string): Promise<GameRow | null> {
-  const result = await query<GameRow>(`SELECT * FROM games WHERE key = $1`, [key]);
-  return result.rows[0] ?? null;
+  const rows = unwrap(await supabase.from("games").select("*").eq("key", key)) as unknown as GameRow[];
+  return rows[0] ?? null;
 }
 
 export interface MatchRow {
@@ -31,29 +31,32 @@ export async function createMatch(input: {
   playerOneId: string;
   state: Record<string, unknown>;
 }): Promise<MatchRow> {
-  const result = await query<MatchRow>(
-    `INSERT INTO game_matches (game_id, mode, player_one_id, state)
-     VALUES ($1, $2, $3, $4) RETURNING *`,
-    [input.gameId, input.mode, input.playerOneId, input.state]
-  );
-  return result.rows[0];
+  const rows = unwrap(
+    await supabase
+      .from("game_matches")
+      .insert({ game_id: input.gameId, mode: input.mode, player_one_id: input.playerOneId, state: input.state })
+      .select("*")
+  ) as unknown as MatchRow[];
+  return rows[0];
 }
 
 export async function findMatchById(matchId: string): Promise<MatchRow | null> {
-  const result = await query<MatchRow>(`SELECT * FROM game_matches WHERE id = $1`, [matchId]);
-  return result.rows[0] ?? null;
+  const rows = unwrap(await supabase.from("game_matches").select("*").eq("id", matchId)) as unknown as MatchRow[];
+  return rows[0] ?? null;
 }
 
 export async function findMatchWithGameKey(matchId: string): Promise<(MatchRow & { game_key: string }) | null> {
-  const result = await query<MatchRow & { game_key: string }>(
-    `SELECT gm.*, g.key AS game_key FROM game_matches gm JOIN games g ON g.id = gm.game_id WHERE gm.id = $1`,
-    [matchId]
-  );
-  return result.rows[0] ?? null;
+  const rows = unwrap(
+    await supabase.from("game_matches").select("*, games(key)").eq("id", matchId)
+  ) as unknown as (MatchRow & { games: { key: string } })[];
+  const row = rows[0];
+  if (!row) return null;
+  const { games, ...rest } = row;
+  return { ...rest, game_key: games.key };
 }
 
 export async function updateMatchState(matchId: string, state: Record<string, unknown>): Promise<void> {
-  await query(`UPDATE game_matches SET state = $2 WHERE id = $1`, [matchId, state]);
+  unwrap(await supabase.from("game_matches").update({ state }).eq("id", matchId));
 }
 
 export async function completeMatch(
@@ -61,32 +64,31 @@ export async function completeMatch(
   result: "player_one_win" | "player_two_win" | "draw",
   state: Record<string, unknown>
 ): Promise<MatchRow> {
-  const updated = await query<MatchRow>(
-    `UPDATE game_matches SET status = 'completed', result = $2, state = $3, ended_at = now() WHERE id = $1 RETURNING *`,
-    [matchId, result, state]
-  );
-  await query(`REFRESH MATERIALIZED VIEW CONCURRENTLY leaderboard_stats`);
-  return updated.rows[0];
+  const rows = unwrap(
+    await supabase
+      .from("game_matches")
+      .update({ status: "completed", result, state, ended_at: new Date().toISOString() })
+      .eq("id", matchId)
+      .select("*")
+  ) as unknown as MatchRow[];
+  unwrap(await supabase.rpc("refresh_leaderboard"));
+  return rows[0];
 }
 
 export async function listMatchesForUser(userId: string, gameKey?: string, limit = 20): Promise<MatchRow[]> {
-  const params: unknown[] = [userId];
-  let gameFilter = "";
-  if (gameKey) {
-    params.push(gameKey);
-    gameFilter = `AND g.key = $${params.length}`;
-  }
-  params.push(limit);
+  let q = supabase
+    .from("game_matches")
+    .select(gameKey ? "*, games!inner(key)" : "*")
+    .or(`player_one_id.eq.${userId},player_two_id.eq.${userId}`);
+  if (gameKey) q = q.eq("games.key", gameKey);
+  q = q.order("created_at", { ascending: false }).limit(limit);
 
-  const result = await query<MatchRow>(
-    `SELECT gm.* FROM game_matches gm
-     JOIN games g ON g.id = gm.game_id
-     WHERE (gm.player_one_id = $1 OR gm.player_two_id = $1) ${gameFilter}
-     ORDER BY gm.created_at DESC
-     LIMIT $${params.length}`,
-    params
-  );
-  return result.rows;
+  const rows = unwrap(await q) as unknown as (MatchRow & { games?: { key: string } })[];
+  return rows.map((row) => {
+    const { games, ...rest } = row;
+    void games;
+    return rest;
+  });
 }
 
 export interface LeaderboardRow {
@@ -101,14 +103,29 @@ export interface LeaderboardRow {
 }
 
 export async function getLeaderboard(gameKey: string, limit = 20): Promise<LeaderboardRow[]> {
-  const result = await query<LeaderboardRow>(
-    `SELECT ls.user_id, u.first_name, u.last_name, u.avatar_url, ls.wins, ls.losses, ls.draws, ls.games_played
-     FROM leaderboard_stats ls
-     JOIN users u ON u.id = ls.user_id
-     WHERE ls.game_key = $1
-     ORDER BY ls.wins DESC, ls.games_played DESC
-     LIMIT $2`,
-    [gameKey, limit]
-  );
-  return result.rows;
+  // leaderboard_stats is a materialized view (no FK to users), so PostgREST can't embed
+  // the join itself -- get_leaderboard() does it directly in Postgres. See migration 0014.
+  const rows = unwrap(
+    await supabase.rpc("get_leaderboard", { p_game_key: gameKey, p_limit: limit })
+  ) as {
+    user_id: string;
+    first_name: string;
+    last_name: string;
+    avatar_url: string | null;
+    wins: number;
+    losses: number;
+    draws: number;
+    games_played: number;
+  }[];
+
+  return rows.map((r) => ({
+    user_id: r.user_id,
+    first_name: r.first_name,
+    last_name: r.last_name,
+    avatar_url: r.avatar_url,
+    wins: String(r.wins),
+    losses: String(r.losses),
+    draws: String(r.draws),
+    games_played: String(r.games_played),
+  }));
 }

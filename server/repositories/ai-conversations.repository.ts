@@ -1,4 +1,4 @@
-import { query } from "../db/client.js";
+import { supabase, unwrap, unwrapCount } from "../db/supabase-client.js";
 
 export interface ConversationRow {
   id: string;
@@ -20,35 +20,34 @@ export interface MessageRow {
 }
 
 export async function createConversation(userId: string, title?: string): Promise<ConversationRow> {
-  const result = await query<ConversationRow>(
-    `INSERT INTO ai_conversations (user_id, title) VALUES ($1, $2) RETURNING *`,
-    [userId, title ?? null]
-  );
-  return result.rows[0];
+  const rows = unwrap(
+    await supabase.from("ai_conversations").insert({ user_id: userId, title: title ?? null }).select("*")
+  ) as unknown as ConversationRow[];
+  return rows[0];
 }
 
 export async function findConversation(conversationId: string, userId: string): Promise<ConversationRow | null> {
-  const result = await query<ConversationRow>(
-    `SELECT * FROM ai_conversations WHERE id = $1 AND user_id = $2`,
-    [conversationId, userId]
-  );
-  return result.rows[0] ?? null;
+  const rows = unwrap(
+    await supabase.from("ai_conversations").select("*").eq("id", conversationId).eq("user_id", userId)
+  ) as unknown as ConversationRow[];
+  return rows[0] ?? null;
 }
 
 export async function listConversations(userId: string, limit = 30): Promise<ConversationRow[]> {
-  const result = await query<ConversationRow>(
-    `SELECT * FROM ai_conversations WHERE user_id = $1 ORDER BY updated_at DESC LIMIT $2`,
-    [userId, limit]
-  );
-  return result.rows;
+  return unwrap(
+    await supabase
+      .from("ai_conversations")
+      .select("*")
+      .eq("user_id", userId)
+      .order("updated_at", { ascending: false })
+      .limit(limit)
+  ) as unknown as ConversationRow[];
 }
 
 export async function touchConversation(conversationId: string, title?: string): Promise<void> {
-  if (title) {
-    await query(`UPDATE ai_conversations SET title = $2, updated_at = now() WHERE id = $1`, [conversationId, title]);
-  } else {
-    await query(`UPDATE ai_conversations SET updated_at = now() WHERE id = $1`, [conversationId]);
-  }
+  const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  if (title) patch.title = title;
+  unwrap(await supabase.from("ai_conversations").update(patch).eq("id", conversationId));
 }
 
 export async function addMessage(input: {
@@ -59,35 +58,40 @@ export async function addMessage(input: {
   toolCallId?: string;
   toolName?: string;
 }): Promise<MessageRow> {
-  const result = await query<MessageRow>(
-    `INSERT INTO ai_messages (conversation_id, role, content, tool_calls, tool_call_id, tool_name)
-     VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-    [
-      input.conversationId,
-      input.role,
-      input.content,
-      input.toolCalls ? JSON.stringify(input.toolCalls) : null,
-      input.toolCallId ?? null,
-      input.toolName ?? null,
-    ]
-  );
-  return result.rows[0];
+  const rows = unwrap(
+    await supabase
+      .from("ai_messages")
+      .insert({
+        conversation_id: input.conversationId,
+        role: input.role,
+        content: input.content,
+        tool_calls: input.toolCalls ?? null,
+        tool_call_id: input.toolCallId ?? null,
+        tool_name: input.toolName ?? null,
+      })
+      .select("*")
+  ) as unknown as MessageRow[];
+  return rows[0];
 }
 
 export async function listMessages(conversationId: string, limit = 40): Promise<MessageRow[]> {
-  const result = await query<MessageRow>(
-    `SELECT * FROM (
-       SELECT * FROM ai_messages WHERE conversation_id = $1 ORDER BY created_at DESC LIMIT $2
-     ) recent ORDER BY created_at ASC`,
-    [conversationId, limit]
-  );
-  return result.rows;
+  const rows = unwrap(
+    await supabase
+      .from("ai_messages")
+      .select("*")
+      .eq("conversation_id", conversationId)
+      .order("created_at", { ascending: false })
+      .limit(limit)
+  ) as unknown as MessageRow[];
+  return rows.reverse();
 }
 
 export async function countUserMessages(conversationId: string): Promise<number> {
-  const result = await query<{ count: string }>(
-    `SELECT COUNT(*) FROM ai_messages WHERE conversation_id = $1 AND role = 'user'`,
-    [conversationId]
+  return unwrapCount(
+    await supabase
+      .from("ai_messages")
+      .select("*", { count: "exact", head: true })
+      .eq("conversation_id", conversationId)
+      .eq("role", "user")
   );
-  return Number.parseInt(result.rows[0].count, 10);
 }

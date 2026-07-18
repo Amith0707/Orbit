@@ -1,4 +1,4 @@
-import { query } from "../db/client.js";
+import { supabase, unwrap } from "../db/supabase-client.js";
 
 export interface DepartmentRow {
   id: string;
@@ -6,11 +6,10 @@ export interface DepartmentRow {
 }
 
 export async function listDepartments(): Promise<DepartmentRow[]> {
-  const result = await query<DepartmentRow>(`SELECT id, name FROM departments ORDER BY name`);
-  return result.rows;
+  return unwrap(await supabase.from("departments").select("id, name").order("name"));
 }
 
 export async function findDepartmentById(id: string): Promise<DepartmentRow | null> {
-  const result = await query<DepartmentRow>(`SELECT id, name FROM departments WHERE id = $1`, [id]);
-  return result.rows[0] ?? null;
+  const rows = unwrap(await supabase.from("departments").select("id, name").eq("id", id));
+  return rows[0] ?? null;
 }

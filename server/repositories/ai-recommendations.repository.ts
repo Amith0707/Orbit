@@ -1,4 +1,4 @@
-import { query } from "../db/client.js";
+import { supabase, unwrap } from "../db/supabase-client.js";
 
 export type RecommendationType = "community" | "match" | "ice_breaker";
 
@@ -14,19 +14,32 @@ export interface AiRecommendationRow {
   created_at: string;
 }
 
+type RawRecommendationRow = Omit<AiRecommendationRow, "score"> & { score: number };
+
+function toRecommendationRow(row: RawRecommendationRow): AiRecommendationRow {
+  return { ...row, score: String(row.score) };
+}
+
+function cutoffIso(maxAgeHours: number): string {
+  return new Date(Date.now() - maxAgeHours * 60 * 60 * 1000).toISOString();
+}
+
 export async function findFreshRecommendations(
   userId: string,
   type: RecommendationType,
   maxAgeHours: number
 ): Promise<AiRecommendationRow[]> {
-  const result = await query<AiRecommendationRow>(
-    `SELECT * FROM ai_recommendations
-     WHERE user_id = $1 AND recommendation_type = $2 AND is_dismissed = false
-       AND created_at >= now() - ($3 || ' hours')::interval
-     ORDER BY score DESC`,
-    [userId, type, maxAgeHours]
-  );
-  return result.rows;
+  const rows = unwrap(
+    await supabase
+      .from("ai_recommendations")
+      .select("*")
+      .eq("user_id", userId)
+      .eq("recommendation_type", type)
+      .eq("is_dismissed", false)
+      .gte("created_at", cutoffIso(maxAgeHours))
+      .order("score", { ascending: false })
+  ) as RawRecommendationRow[];
+  return rows.map(toRecommendationRow);
 }
 
 export async function findFreshRecommendationForTarget(
@@ -35,14 +48,18 @@ export async function findFreshRecommendationForTarget(
   targetId: string,
   maxAgeHours: number
 ): Promise<AiRecommendationRow | null> {
-  const result = await query<AiRecommendationRow>(
-    `SELECT * FROM ai_recommendations
-     WHERE user_id = $1 AND recommendation_type = $2 AND target_id = $3
-       AND created_at >= now() - ($4 || ' hours')::interval
-     ORDER BY created_at DESC LIMIT 1`,
-    [userId, type, targetId, maxAgeHours]
-  );
-  return result.rows[0] ?? null;
+  const rows = unwrap(
+    await supabase
+      .from("ai_recommendations")
+      .select("*")
+      .eq("user_id", userId)
+      .eq("recommendation_type", type)
+      .eq("target_id", targetId)
+      .gte("created_at", cutoffIso(maxAgeHours))
+      .order("created_at", { ascending: false })
+      .limit(1)
+  ) as RawRecommendationRow[];
+  return rows[0] ? toRecommendationRow(rows[0]) : null;
 }
 
 export async function saveRecommendation(input: {
@@ -53,18 +70,29 @@ export async function saveRecommendation(input: {
   scoreBreakdown: Record<string, unknown>;
   aiExplanation: string;
 }): Promise<AiRecommendationRow> {
-  const result = await query<AiRecommendationRow>(
-    `INSERT INTO ai_recommendations (user_id, recommendation_type, target_id, score, score_breakdown, ai_explanation)
-     VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-    [input.userId, input.type, input.targetId, input.score, input.scoreBreakdown, input.aiExplanation]
-  );
-  return result.rows[0];
+  const rows = unwrap(
+    await supabase
+      .from("ai_recommendations")
+      .insert({
+        user_id: input.userId,
+        recommendation_type: input.type,
+        target_id: input.targetId,
+        score: input.score,
+        score_breakdown: input.scoreBreakdown,
+        ai_explanation: input.aiExplanation,
+      })
+      .select("*")
+  ) as RawRecommendationRow[];
+  return toRecommendationRow(rows[0]);
 }
 
 export async function dismissRecommendation(userId: string, type: RecommendationType, targetId: string): Promise<void> {
-  await query(
-    `UPDATE ai_recommendations SET is_dismissed = true
-     WHERE user_id = $1 AND recommendation_type = $2 AND target_id = $3`,
-    [userId, type, targetId]
+  unwrap(
+    await supabase
+      .from("ai_recommendations")
+      .update({ is_dismissed: true })
+      .eq("user_id", userId)
+      .eq("recommendation_type", type)
+      .eq("target_id", targetId)
   );
 }

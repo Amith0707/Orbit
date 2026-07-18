@@ -1,4 +1,4 @@
-import { query } from "../db/client.js";
+import { supabase, unwrap } from "../db/supabase-client.js";
 
 export type TagKind = "interest" | "hobby" | "skill";
 
@@ -9,98 +9,90 @@ export interface TagRow {
 }
 
 export async function listTags(kind?: TagKind): Promise<TagRow[]> {
-  if (kind) {
-    const result = await query<TagRow>(`SELECT id, kind, name FROM tags WHERE kind = $1 ORDER BY name`, [kind]);
-    return result.rows;
-  }
-  const result = await query<TagRow>(`SELECT id, kind, name FROM tags ORDER BY kind, name`);
-  return result.rows;
+  let q = supabase.from("tags").select("id, kind, name");
+  q = kind ? q.eq("kind", kind).order("name") : q.order("kind").order("name");
+  return unwrap(await q) as unknown as TagRow[];
 }
 
 export async function findOrCreateTag(kind: TagKind, name: string): Promise<TagRow> {
   const trimmed = name.trim();
-  const existing = await query<TagRow>(`SELECT id, kind, name FROM tags WHERE kind = $1 AND LOWER(name) = LOWER($2)`, [
-    kind,
-    trimmed,
-  ]);
-  if (existing.rows[0]) return existing.rows[0];
+  const existingRows = unwrap(
+    await supabase.from("tags").select("id, kind, name").eq("kind", kind).ilike("name", trimmed)
+  ) as unknown as TagRow[];
+  if (existingRows[0]) return existingRows[0];
 
-  const created = await query<TagRow>(
-    `INSERT INTO tags (kind, name) VALUES ($1, $2) ON CONFLICT (kind, name) DO UPDATE SET name = EXCLUDED.name
-     RETURNING id, kind, name`,
-    [kind, trimmed]
-  );
-  return created.rows[0];
+  const created = unwrap(
+    await supabase
+      .from("tags")
+      .upsert({ kind, name: trimmed }, { onConflict: "kind,name" })
+      .select("id, kind, name")
+  ) as unknown as TagRow[];
+  return created[0];
 }
 
 export async function getUserTags(userId: string): Promise<TagRow[]> {
-  const result = await query<TagRow>(
-    `SELECT t.id, t.kind, t.name FROM tags t
-     JOIN user_tags ut ON ut.tag_id = t.id
-     WHERE ut.user_id = $1
-     ORDER BY t.kind, t.name`,
-    [userId]
-  );
-  return result.rows;
+  const rows = unwrap(
+    await supabase.from("user_tags").select("tag:tags(id, kind, name)").eq("user_id", userId)
+  ) as unknown as { tag: TagRow }[];
+  return rows.map((r) => r.tag).sort((a, b) => a.kind.localeCompare(b.kind) || a.name.localeCompare(b.name));
 }
 
 export async function getUserTagsForUsers(userIds: string[]): Promise<Map<string, TagRow[]>> {
   if (userIds.length === 0) return new Map();
-  const result = await query<TagRow & { user_id: string }>(
-    `SELECT ut.user_id, t.id, t.kind, t.name FROM tags t
-     JOIN user_tags ut ON ut.tag_id = t.id
-     WHERE ut.user_id = ANY($1::uuid[])
-     ORDER BY t.kind, t.name`,
-    [userIds]
-  );
+  const rows = unwrap(
+    await supabase.from("user_tags").select("user_id, tag:tags(id, kind, name)").in("user_id", userIds)
+  ) as unknown as { user_id: string; tag: TagRow }[];
+
   const map = new Map<string, TagRow[]>();
-  for (const row of result.rows) {
+  for (const row of rows) {
     const list = map.get(row.user_id) ?? [];
-    list.push({ id: row.id, kind: row.kind, name: row.name });
+    list.push(row.tag);
     map.set(row.user_id, list);
+  }
+  for (const list of map.values()) {
+    list.sort((a, b) => a.kind.localeCompare(b.kind) || a.name.localeCompare(b.name));
   }
   return map;
 }
 
 export async function setUserTags(userId: string, tagIds: string[]): Promise<void> {
-  await query(`DELETE FROM user_tags WHERE user_id = $1`, [userId]);
+  unwrap(await supabase.from("user_tags").delete().eq("user_id", userId));
   if (tagIds.length === 0) return;
-  const values = tagIds.map((_, i) => `($1, $${i + 2})`).join(", ");
-  await query(`INSERT INTO user_tags (user_id, tag_id) VALUES ${values}`, [userId, ...tagIds]);
+  unwrap(await supabase.from("user_tags").insert(tagIds.map((tagId) => ({ user_id: userId, tag_id: tagId }))));
 }
 
 export async function getCommunityTagsForCommunities(communityIds: string[]): Promise<Map<string, TagRow[]>> {
   if (communityIds.length === 0) return new Map();
-  const result = await query<TagRow & { community_id: string }>(
-    `SELECT ct.community_id, t.id, t.kind, t.name FROM tags t
-     JOIN community_tags ct ON ct.tag_id = t.id
-     WHERE ct.community_id = ANY($1::uuid[])
-     ORDER BY t.kind, t.name`,
-    [communityIds]
-  );
+  const rows = unwrap(
+    await supabase
+      .from("community_tags")
+      .select("community_id, tag:tags(id, kind, name)")
+      .in("community_id", communityIds)
+  ) as unknown as { community_id: string; tag: TagRow }[];
+
   const map = new Map<string, TagRow[]>();
-  for (const row of result.rows) {
+  for (const row of rows) {
     const list = map.get(row.community_id) ?? [];
-    list.push({ id: row.id, kind: row.kind, name: row.name });
+    list.push(row.tag);
     map.set(row.community_id, list);
+  }
+  for (const list of map.values()) {
+    list.sort((a, b) => a.kind.localeCompare(b.kind) || a.name.localeCompare(b.name));
   }
   return map;
 }
 
 export async function getCommunityTags(communityId: string): Promise<TagRow[]> {
-  const result = await query<TagRow>(
-    `SELECT t.id, t.kind, t.name FROM tags t
-     JOIN community_tags ct ON ct.tag_id = t.id
-     WHERE ct.community_id = $1
-     ORDER BY t.kind, t.name`,
-    [communityId]
-  );
-  return result.rows;
+  const rows = unwrap(
+    await supabase.from("community_tags").select("tag:tags(id, kind, name)").eq("community_id", communityId)
+  ) as unknown as { tag: TagRow }[];
+  return rows.map((r) => r.tag).sort((a, b) => a.kind.localeCompare(b.kind) || a.name.localeCompare(b.name));
 }
 
 export async function setCommunityTags(communityId: string, tagIds: string[]): Promise<void> {
-  await query(`DELETE FROM community_tags WHERE community_id = $1`, [communityId]);
+  unwrap(await supabase.from("community_tags").delete().eq("community_id", communityId));
   if (tagIds.length === 0) return;
-  const values = tagIds.map((_, i) => `($1, $${i + 2})`).join(", ");
-  await query(`INSERT INTO community_tags (community_id, tag_id) VALUES ${values}`, [communityId, ...tagIds]);
+  unwrap(
+    await supabase.from("community_tags").insert(tagIds.map((tagId) => ({ community_id: communityId, tag_id: tagId })))
+  );
 }

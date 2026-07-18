@@ -1,4 +1,4 @@
-import { query, withTransaction } from "../db/client.js";
+import { supabase, unwrap } from "../db/supabase-client.js";
 
 export interface PollRow {
   id: string;
@@ -28,49 +28,34 @@ export async function createPollWithPost(input: {
   allowMultipleChoices: boolean;
   closesAt?: Date;
 }): Promise<{ poll: PollRow; options: PollOptionRow[]; postId: string }> {
-  return withTransaction(async (client) => {
-    const postResult = await client.query<{ id: string }>(
-      `INSERT INTO posts (community_id, author_id, body) VALUES ($1, $2, $3) RETURNING id`,
-      [input.communityId, input.authorId, input.question]
-    );
-    const postId = postResult.rows[0].id;
+  const result = unwrap(
+    await supabase.rpc("create_poll_with_post", {
+      p_community_id: input.communityId,
+      p_author_id: input.authorId,
+      p_question: input.question,
+      p_options: input.options,
+      p_allow_multiple: input.allowMultipleChoices,
+      p_closes_at: input.closesAt?.toISOString() ?? null,
+    })
+  ) as { post_id: string; poll: PollRow; options: PollOptionRow[] };
 
-    const pollResult = await client.query<PollRow>(
-      `INSERT INTO polls (post_id, community_id, created_by, question, allow_multiple_choices, closes_at)
-       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-      [postId, input.communityId, input.authorId, input.question, input.allowMultipleChoices, input.closesAt ?? null]
-    );
-    const poll = pollResult.rows[0];
-
-    const options: PollOptionRow[] = [];
-    for (let i = 0; i < input.options.length; i += 1) {
-      const optResult = await client.query<PollOptionRow>(
-        `INSERT INTO poll_options (poll_id, label, display_order) VALUES ($1, $2, $3) RETURNING *`,
-        [poll.id, input.options[i], i]
-      );
-      options.push(optResult.rows[0]);
-    }
-
-    return { poll, options, postId };
-  });
+  return { poll: result.poll, options: result.options, postId: result.post_id };
 }
 
 export async function findPollByPostId(postId: string): Promise<PollRow | null> {
-  const result = await query<PollRow>(`SELECT * FROM polls WHERE post_id = $1`, [postId]);
-  return result.rows[0] ?? null;
+  const rows = unwrap(await supabase.from("polls").select("*").eq("post_id", postId)) as unknown as PollRow[];
+  return rows[0] ?? null;
 }
 
 export async function findPollById(pollId: string): Promise<PollRow | null> {
-  const result = await query<PollRow>(`SELECT * FROM polls WHERE id = $1`, [pollId]);
-  return result.rows[0] ?? null;
+  const rows = unwrap(await supabase.from("polls").select("*").eq("id", pollId)) as unknown as PollRow[];
+  return rows[0] ?? null;
 }
 
 export async function listPollOptions(pollId: string): Promise<PollOptionRow[]> {
-  const result = await query<PollOptionRow>(
-    `SELECT * FROM poll_options WHERE poll_id = $1 ORDER BY display_order ASC`,
-    [pollId]
-  );
-  return result.rows;
+  return unwrap(
+    await supabase.from("poll_options").select("*").eq("poll_id", pollId).order("display_order", { ascending: true })
+  ) as unknown as PollOptionRow[];
 }
 
 export interface OptionCount {
@@ -79,53 +64,45 @@ export interface OptionCount {
 }
 
 export async function countVotesByOption(pollId: string): Promise<OptionCount[]> {
-  const result = await query<OptionCount>(
-    `SELECT poll_option_id, COUNT(*) AS vote_count FROM poll_votes WHERE poll_id = $1 GROUP BY poll_option_id`,
-    [pollId]
-  );
-  return result.rows;
+  const rows = unwrap(
+    await supabase.from("poll_votes").select("poll_option_id").eq("poll_id", pollId)
+  ) as { poll_option_id: string }[];
+
+  const counts = new Map<string, number>();
+  for (const row of rows) {
+    counts.set(row.poll_option_id, (counts.get(row.poll_option_id) ?? 0) + 1);
+  }
+  return [...counts.entries()].map(([poll_option_id, count]) => ({ poll_option_id, vote_count: String(count) }));
 }
 
 export async function getViewerVotes(pollId: string, userId: string): Promise<string[]> {
-  const result = await query<{ poll_option_id: string }>(
-    `SELECT poll_option_id FROM poll_votes WHERE poll_id = $1 AND user_id = $2`,
-    [pollId, userId]
-  );
-  return result.rows.map((r) => r.poll_option_id);
+  const rows = unwrap(
+    await supabase.from("poll_votes").select("poll_option_id").eq("poll_id", pollId).eq("user_id", userId)
+  ) as { poll_option_id: string }[];
+  return rows.map((r) => r.poll_option_id);
 }
 
 export async function countUniqueVoters(pollId: string): Promise<number> {
-  const result = await query<{ count: string }>(
-    `SELECT COUNT(DISTINCT user_id) FROM poll_votes WHERE poll_id = $1`,
-    [pollId]
-  );
-  return Number.parseInt(result.rows[0].count, 10);
+  const rows = unwrap(
+    await supabase.from("poll_votes").select("user_id").eq("poll_id", pollId)
+  ) as { user_id: string }[];
+  return new Set(rows.map((r) => r.user_id)).size;
 }
 
 export async function castVote(pollId: string, userId: string, optionIds: string[], allowMultiple: boolean): Promise<void> {
-  await withTransaction(async (client) => {
-    if (!allowMultiple) {
-      await client.query(`DELETE FROM poll_votes WHERE poll_id = $1 AND user_id = $2`, [pollId, userId]);
-    } else {
-      await client.query(
-        `DELETE FROM poll_votes WHERE poll_id = $1 AND user_id = $2 AND poll_option_id = ANY($3::uuid[])`,
-        [pollId, userId, optionIds]
-      );
-    }
-    for (const optionId of optionIds) {
-      await client.query(
-        `INSERT INTO poll_votes (poll_id, poll_option_id, user_id) VALUES ($1, $2, $3)
-         ON CONFLICT (poll_id, poll_option_id, user_id) DO NOTHING`,
-        [pollId, optionId, userId]
-      );
-    }
-  });
+  unwrap(
+    await supabase.rpc("cast_poll_vote", {
+      p_poll_id: pollId,
+      p_user_id: userId,
+      p_option_ids: optionIds,
+      p_allow_multiple: allowMultiple,
+    })
+  );
 }
 
 export async function closePoll(pollId: string, aiSummary: string): Promise<PollRow> {
-  const result = await query<PollRow>(
-    `UPDATE polls SET is_closed = true, ai_summary = $2 WHERE id = $1 RETURNING *`,
-    [pollId, aiSummary]
-  );
-  return result.rows[0];
+  const rows = unwrap(
+    await supabase.from("polls").update({ is_closed: true, ai_summary: aiSummary }).eq("id", pollId).select("*")
+  ) as unknown as PollRow[];
+  return rows[0];
 }

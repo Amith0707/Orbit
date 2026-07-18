@@ -1,4 +1,4 @@
-import { query } from "../db/client.js";
+import { supabase, unwrap } from "../db/supabase-client.js";
 
 export interface CandidateCommunityRow {
   id: string;
@@ -12,19 +12,11 @@ export interface CandidateCommunityRow {
 }
 
 export async function listCandidateCommunities(userId: string, departmentId: string | null): Promise<CandidateCommunityRow[]> {
-  const result = await query<CandidateCommunityRow>(
-    `SELECT c.id, c.name, c.slug, c.description, c.cover_image_url, c.created_at,
-       (SELECT COUNT(*) FROM community_members m WHERE m.community_id = c.id) AS member_count,
-       (SELECT COUNT(*) FROM community_members m
-          JOIN users u2 ON u2.id = m.user_id
-          WHERE m.community_id = c.id AND u2.department_id = $2) AS coworker_count
-     FROM communities c
-     WHERE c.is_archived = false
-       AND NOT EXISTS (SELECT 1 FROM community_members m WHERE m.community_id = c.id AND m.user_id = $1)
-     ORDER BY c.created_at DESC`,
-    [userId, departmentId]
-  );
-  return result.rows;
+  const rows = unwrap(
+    await supabase.rpc("list_candidate_communities", { p_user_id: userId, p_department_id: departmentId })
+  ) as (Omit<CandidateCommunityRow, "member_count" | "coworker_count"> & { member_count: number; coworker_count: number })[];
+
+  return rows.map((r) => ({ ...r, member_count: String(r.member_count), coworker_count: String(r.coworker_count) }));
 }
 
 export interface CandidateCoworkerRow {
@@ -40,21 +32,16 @@ export interface CandidateCoworkerRow {
 }
 
 export async function listCandidateCoworkers(userId: string, limit: number): Promise<CandidateCoworkerRow[]> {
-  const result = await query<CandidateCoworkerRow>(
-    `SELECT u.id, u.first_name, u.last_name, u.avatar_url, u.job_title, u.department_id, d.name AS department_name,
-       (SELECT COUNT(*) FROM community_members m1
-          JOIN community_members m2 ON m2.community_id = m1.community_id
-          WHERE m1.user_id = $1 AND m2.user_id = u.id) AS shared_community_count,
-       (SELECT COUNT(*) FROM event_participants p1
-          JOIN event_participants p2 ON p2.event_id = p1.event_id
-          JOIN events e ON e.id = p1.event_id
-          WHERE p1.user_id = $1 AND p2.user_id = u.id AND e.starts_at >= now()) AS shared_upcoming_event_count
-     FROM users u
-     LEFT JOIN departments d ON d.id = u.department_id
-     WHERE u.id != $1 AND u.is_active = true
-     ORDER BY u.created_at DESC
-     LIMIT $2`,
-    [userId, limit]
-  );
-  return result.rows;
+  const rows = unwrap(
+    await supabase.rpc("list_candidate_coworkers", { p_user_id: userId, p_limit: limit })
+  ) as (Omit<CandidateCoworkerRow, "shared_community_count" | "shared_upcoming_event_count"> & {
+    shared_community_count: number;
+    shared_upcoming_event_count: number;
+  })[];
+
+  return rows.map((r) => ({
+    ...r,
+    shared_community_count: String(r.shared_community_count),
+    shared_upcoming_event_count: String(r.shared_upcoming_event_count),
+  }));
 }

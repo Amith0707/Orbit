@@ -1,4 +1,4 @@
-import { query } from "../db/client.js";
+import { supabase, unwrap } from "../db/supabase-client.js";
 
 export interface EventRow {
   id: string;
@@ -29,14 +29,21 @@ export interface EventWithStats extends EventRow {
   community_name: string | null;
 }
 
-const EVENT_SELECT = `
-  SELECT e.*,
-    (SELECT COUNT(*) FROM event_participants p WHERE p.event_id = e.id AND p.rsvp_status = 'going') AS participant_count,
-    (SELECT p.rsvp_status FROM event_participants p WHERE p.event_id = e.id AND p.user_id = $1) AS viewer_rsvp_status,
-    c.name AS community_name
-  FROM events e
-  LEFT JOIN communities c ON c.id = e.community_id
-`;
+type RpcEventRow = Omit<EventRow, "estimated_cost"> & {
+  estimated_cost: number | null;
+  participant_count: number;
+  viewer_rsvp_status: string | null;
+  community_name: string | null;
+  total_count?: number;
+};
+
+function toEventWithStats(row: RpcEventRow): EventWithStats {
+  return {
+    ...row,
+    estimated_cost: row.estimated_cost === null ? null : String(row.estimated_cost),
+    participant_count: String(row.participant_count),
+  };
+}
 
 export async function createEvent(input: {
   communityId?: string | null;
@@ -56,37 +63,38 @@ export async function createEvent(input: {
   source?: "manual" | "ai_planner";
   aiRawResponse?: Record<string, unknown>;
 }): Promise<EventRow> {
-  const result = await query<EventRow>(
-    `INSERT INTO events (
-       community_id, created_by, title, description, location, starts_at, ends_at, duration_minutes,
-       estimated_cost, ideal_group_size_min, ideal_group_size_max, capacity, agenda, things_to_bring, source, ai_raw_response
-     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
-     RETURNING *`,
-    [
-      input.communityId ?? null,
-      input.createdBy,
-      input.title,
-      input.description,
-      input.location ?? null,
-      input.startsAt,
-      input.endsAt ?? null,
-      input.durationMinutes ?? null,
-      input.estimatedCost ?? null,
-      input.idealGroupSizeMin ?? null,
-      input.idealGroupSizeMax ?? null,
-      input.capacity ?? null,
-      input.agenda ? JSON.stringify(input.agenda) : null,
-      input.thingsToBring ? JSON.stringify(input.thingsToBring) : null,
-      input.source ?? "manual",
-      input.aiRawResponse ? JSON.stringify(input.aiRawResponse) : null,
-    ]
-  );
-  return result.rows[0];
+  const rows = unwrap(
+    await supabase
+      .from("events")
+      .insert({
+        community_id: input.communityId ?? null,
+        created_by: input.createdBy,
+        title: input.title,
+        description: input.description,
+        location: input.location ?? null,
+        starts_at: input.startsAt.toISOString(),
+        ends_at: input.endsAt?.toISOString() ?? null,
+        duration_minutes: input.durationMinutes ?? null,
+        estimated_cost: input.estimatedCost ?? null,
+        ideal_group_size_min: input.idealGroupSizeMin ?? null,
+        ideal_group_size_max: input.idealGroupSizeMax ?? null,
+        capacity: input.capacity ?? null,
+        agenda: input.agenda ?? null,
+        things_to_bring: input.thingsToBring ?? null,
+        source: input.source ?? "manual",
+        ai_raw_response: input.aiRawResponse ?? null,
+      })
+      .select("*")
+  ) as unknown as (Omit<EventRow, "estimated_cost"> & { estimated_cost: number | null })[];
+  const row = rows[0];
+  return { ...row, estimated_cost: row.estimated_cost === null ? null : String(row.estimated_cost) };
 }
 
 export async function findEventById(id: string, viewerId: string): Promise<EventWithStats | null> {
-  const result = await query<EventWithStats>(`${EVENT_SELECT} WHERE e.id = $2`, [viewerId, id]);
-  return result.rows[0] ?? null;
+  const rows = unwrap(
+    await supabase.rpc("find_event_by_id", { p_event_id: id, p_viewer_id: viewerId })
+  ) as RpcEventRow[];
+  return rows[0] ? toEventWithStats(rows[0]) : null;
 }
 
 export interface ListEventsFilters {
@@ -99,59 +107,32 @@ export interface ListEventsFilters {
   offset: number;
 }
 
-function buildEventConditions(filters: ListEventsFilters, params: unknown[], viewerParamIndex: number) {
-  const conditions = [`e.status != 'cancelled'`];
-
-  if (filters.upcomingOnly) conditions.push(`e.starts_at >= now()`);
-  if (filters.communityId) {
-    params.push(filters.communityId);
-    conditions.push(`e.community_id = $${params.length}`);
-  }
-  if (filters.joinedOnly) {
-    conditions.push(
-      `EXISTS (SELECT 1 FROM event_participants p WHERE p.event_id = e.id AND p.user_id = $${viewerParamIndex})`
-    );
-  }
-  if (filters.search) {
-    params.push(`%${filters.search.toLowerCase()}%`);
-    conditions.push(`LOWER(e.title) LIKE $${params.length}`);
-  }
-
-  return conditions;
-}
-
 export async function listEvents(filters: ListEventsFilters): Promise<{ rows: EventWithStats[]; total: number }> {
-  // The count query has no reason to know the viewer unless joinedOnly filters on them —
-  // only push viewerId into its params when a condition actually references it.
-  const countParams: unknown[] = filters.joinedOnly ? [filters.viewerId] : [];
-  const countConditions = buildEventConditions(filters, countParams, 1);
-  const countResult = await query<{ count: string }>(
-    `SELECT COUNT(*) FROM events e WHERE ${countConditions.join(" AND ")}`,
-    countParams
-  );
+  const rows = unwrap(
+    await supabase.rpc("list_events", {
+      p_viewer_id: filters.viewerId,
+      p_community_id: filters.communityId ?? null,
+      p_upcoming_only: filters.upcomingOnly ?? false,
+      p_joined_only: filters.joinedOnly ?? false,
+      p_search: filters.search ? `%${filters.search.toLowerCase()}%` : null,
+      p_limit: filters.limit,
+      p_offset: filters.offset,
+    })
+  ) as (RpcEventRow & { total_count: number })[];
 
-  // The row query always needs viewerId at $1 for EVENT_SELECT's viewer-scoped subqueries.
-  const rowParams: unknown[] = [filters.viewerId];
-  const rowConditions = buildEventConditions(filters, rowParams, 1);
-  rowParams.push(filters.limit, filters.offset);
-  const rowsResult = await query<EventWithStats>(
-    `${EVENT_SELECT} WHERE ${rowConditions.join(" AND ")} ORDER BY e.starts_at ASC LIMIT $${rowParams.length - 1} OFFSET $${rowParams.length}`,
-    rowParams
-  );
-
-  return { rows: rowsResult.rows, total: Number.parseInt(countResult.rows[0].count, 10) };
+  return { rows: rows.map(toEventWithStats), total: rows[0]?.total_count ?? 0 };
 }
 
 export async function upsertRsvp(eventId: string, userId: string, status: "going" | "interested" | "declined"): Promise<void> {
-  await query(
-    `INSERT INTO event_participants (event_id, user_id, rsvp_status) VALUES ($1, $2, $3)
-     ON CONFLICT (event_id, user_id) DO UPDATE SET rsvp_status = EXCLUDED.rsvp_status`,
-    [eventId, userId, status]
+  unwrap(
+    await supabase
+      .from("event_participants")
+      .upsert({ event_id: eventId, user_id: userId, rsvp_status: status }, { onConflict: "event_id,user_id" })
   );
 }
 
 export async function removeRsvp(eventId: string, userId: string): Promise<void> {
-  await query(`DELETE FROM event_participants WHERE event_id = $1 AND user_id = $2`, [eventId, userId]);
+  unwrap(await supabase.from("event_participants").delete().eq("event_id", eventId).eq("user_id", userId));
 }
 
 export interface ParticipantRow {
@@ -163,26 +144,30 @@ export interface ParticipantRow {
 }
 
 export async function listParticipants(eventId: string): Promise<ParticipantRow[]> {
-  const result = await query<ParticipantRow>(
-    `SELECT p.user_id, p.rsvp_status, u.first_name, u.last_name, u.avatar_url
-     FROM event_participants p JOIN users u ON u.id = p.user_id
-     WHERE p.event_id = $1 ORDER BY p.created_at ASC`,
-    [eventId]
-  );
-  return result.rows;
+  const rows = unwrap(
+    await supabase
+      .from("event_participants")
+      .select("user_id, rsvp_status, created_at, user:users(first_name, last_name, avatar_url)")
+      .eq("event_id", eventId)
+      .order("created_at", { ascending: true })
+  ) as unknown as {
+    user_id: string;
+    rsvp_status: string;
+    user: { first_name: string; last_name: string; avatar_url: string | null };
+  }[];
+
+  return rows.map((r) => ({
+    user_id: r.user_id,
+    rsvp_status: r.rsvp_status,
+    first_name: r.user.first_name,
+    last_name: r.user.last_name,
+    avatar_url: r.user.avatar_url,
+  }));
 }
 
 export async function listUpcomingForUser(userId: string, limit: number): Promise<EventWithStats[]> {
-  const result = await query<EventWithStats>(
-    `${EVENT_SELECT}
-     WHERE e.status = 'scheduled' AND e.starts_at >= now()
-       AND (
-         EXISTS (SELECT 1 FROM event_participants p WHERE p.event_id = e.id AND p.user_id = $1)
-         OR e.community_id IN (SELECT community_id FROM community_members WHERE user_id = $1)
-       )
-     ORDER BY e.starts_at ASC
-     LIMIT $2`,
-    [userId, limit]
-  );
-  return result.rows;
+  const rows = unwrap(
+    await supabase.rpc("list_upcoming_events_for_user", { p_user_id: userId, p_limit: limit })
+  ) as RpcEventRow[];
+  return rows.map(toEventWithStats);
 }

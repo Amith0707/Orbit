@@ -1,4 +1,4 @@
-import { query } from "../db/client.js";
+import { supabase, unwrap, unwrapCount } from "../db/supabase-client.js";
 
 export interface WeeklyDigestRow {
   id: string;
@@ -11,11 +11,10 @@ export interface WeeklyDigestRow {
 }
 
 export async function findDigestForWeek(userId: string, weekStart: string): Promise<WeeklyDigestRow | null> {
-  const result = await query<WeeklyDigestRow>(
-    `SELECT * FROM weekly_digests WHERE user_id = $1 AND week_start = $2`,
-    [userId, weekStart]
-  );
-  return result.rows[0] ?? null;
+  const rows = unwrap(
+    await supabase.from("weekly_digests").select("*").eq("user_id", userId).eq("week_start", weekStart)
+  ) as unknown as WeeklyDigestRow[];
+  return rows[0] ?? null;
 }
 
 export async function createDigest(input: {
@@ -25,30 +24,50 @@ export async function createDigest(input: {
   stats: Record<string, unknown>;
   narrative: string;
 }): Promise<WeeklyDigestRow> {
-  const result = await query<WeeklyDigestRow>(
-    `INSERT INTO weekly_digests (user_id, week_start, week_end, stats, narrative)
-     VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-    [input.userId, input.weekStart, input.weekEnd, input.stats, input.narrative]
-  );
-  return result.rows[0];
+  const rows = unwrap(
+    await supabase
+      .from("weekly_digests")
+      .insert({
+        user_id: input.userId,
+        week_start: input.weekStart,
+        week_end: input.weekEnd,
+        stats: input.stats,
+        narrative: input.narrative,
+      })
+      .select("*")
+  ) as unknown as WeeklyDigestRow[];
+  return rows[0];
 }
 
 export async function listRecentDigests(userId: string, limit = 8): Promise<WeeklyDigestRow[]> {
-  const result = await query<WeeklyDigestRow>(
-    `SELECT * FROM weekly_digests WHERE user_id = $1 ORDER BY week_start DESC LIMIT $2`,
-    [userId, limit]
-  );
-  return result.rows;
+  return unwrap(
+    await supabase
+      .from("weekly_digests")
+      .select("*")
+      .eq("user_id", userId)
+      .order("week_start", { ascending: false })
+      .limit(limit)
+  ) as unknown as WeeklyDigestRow[];
+}
+
+async function getUserCommunityIds(userId: string): Promise<string[]> {
+  const rows = unwrap(
+    await supabase.from("community_members").select("community_id").eq("user_id", userId)
+  ) as { community_id: string }[];
+  return rows.map((r) => r.community_id);
 }
 
 export async function countNewPostsForUserCommunities(userId: string, since: string): Promise<number> {
-  const result = await query<{ count: string }>(
-    `SELECT COUNT(*) FROM posts p
-     WHERE p.deleted_at IS NULL AND p.created_at >= $2
-       AND p.community_id IN (SELECT community_id FROM community_members WHERE user_id = $1)`,
-    [userId, since]
+  const communityIds = await getUserCommunityIds(userId);
+  if (communityIds.length === 0) return 0;
+  return unwrapCount(
+    await supabase
+      .from("posts")
+      .select("*", { count: "exact", head: true })
+      .is("deleted_at", null)
+      .gte("created_at", since)
+      .in("community_id", communityIds)
   );
-  return Number.parseInt(result.rows[0].count, 10);
 }
 
 export interface ActiveChallengeRow {
@@ -57,15 +76,18 @@ export interface ActiveChallengeRow {
 }
 
 export async function listActiveChallengesForUserCommunities(userId: string, limit = 3): Promise<ActiveChallengeRow[]> {
-  const result = await query<ActiveChallengeRow>(
-    `SELECT cc.title, c.name AS community_name
-     FROM community_challenges cc
-     JOIN communities c ON c.id = cc.community_id
-     WHERE cc.status = 'active'
-       AND cc.community_id IN (SELECT community_id FROM community_members WHERE user_id = $1)
-     ORDER BY cc.created_at DESC
-     LIMIT $2`,
-    [userId, limit]
-  );
-  return result.rows;
+  const communityIds = await getUserCommunityIds(userId);
+  if (communityIds.length === 0) return [];
+
+  const rows = unwrap(
+    await supabase
+      .from("community_challenges")
+      .select("title, community:communities(name)")
+      .eq("status", "active")
+      .in("community_id", communityIds)
+      .order("created_at", { ascending: false })
+      .limit(limit)
+  ) as unknown as { title: string; community: { name: string } }[];
+
+  return rows.map((r) => ({ title: r.title, community_name: r.community.name }));
 }

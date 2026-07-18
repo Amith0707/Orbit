@@ -1,4 +1,4 @@
-import { query } from "../db/client.js";
+import { supabase, unwrap } from "../db/supabase-client.js";
 
 export interface RefreshTokenRow {
   id: string;
@@ -15,26 +15,41 @@ export async function createRefreshToken(input: {
   userAgent?: string;
   ipAddress?: string;
 }): Promise<void> {
-  await query(
-    `INSERT INTO refresh_tokens (user_id, token_hash, expires_at, user_agent, ip_address)
-     VALUES ($1, $2, $3, $4, $5)`,
-    [input.userId, input.tokenHash, input.expiresAt, input.userAgent ?? null, input.ipAddress ?? null]
+  unwrap(
+    await supabase.from("refresh_tokens").insert({
+      user_id: input.userId,
+      token_hash: input.tokenHash,
+      expires_at: input.expiresAt.toISOString(),
+      user_agent: input.userAgent ?? null,
+      ip_address: input.ipAddress ?? null,
+    })
   );
 }
 
 export async function findActiveRefreshToken(tokenHash: string): Promise<RefreshTokenRow | null> {
-  const result = await query<RefreshTokenRow>(
-    `SELECT id, user_id, token_hash, expires_at, revoked_at FROM refresh_tokens
-     WHERE token_hash = $1 AND revoked_at IS NULL AND expires_at > now()`,
-    [tokenHash]
+  const rows = unwrap(
+    await supabase
+      .from("refresh_tokens")
+      .select("id, user_id, token_hash, expires_at, revoked_at")
+      .eq("token_hash", tokenHash)
+      .is("revoked_at", null)
+      .gt("expires_at", new Date().toISOString())
   );
-  return result.rows[0] ?? null;
+  return rows[0] ?? null;
 }
 
 export async function revokeRefreshToken(tokenHash: string): Promise<void> {
-  await query(`UPDATE refresh_tokens SET revoked_at = now() WHERE token_hash = $1`, [tokenHash]);
+  unwrap(
+    await supabase.from("refresh_tokens").update({ revoked_at: new Date().toISOString() }).eq("token_hash", tokenHash)
+  );
 }
 
 export async function revokeAllRefreshTokensForUser(userId: string): Promise<void> {
-  await query(`UPDATE refresh_tokens SET revoked_at = now() WHERE user_id = $1 AND revoked_at IS NULL`, [userId]);
+  unwrap(
+    await supabase
+      .from("refresh_tokens")
+      .update({ revoked_at: new Date().toISOString() })
+      .eq("user_id", userId)
+      .is("revoked_at", null)
+  );
 }
