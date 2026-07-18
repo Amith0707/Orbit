@@ -18,6 +18,11 @@ export async function listTags(kind?: TagKind): Promise<Tag[]> {
   return data.tags;
 }
 
+export async function createTag(kind: TagKind, name: string): Promise<Tag> {
+  const { data } = await api.post<{ tag: Tag }>("/meta/tags", { kind, name });
+  return data.tag;
+}
+
 export async function listDepartments(): Promise<Department[]> {
   const { data } = await api.get<{ departments: Department[] }>("/meta/departments");
   return data.departments;

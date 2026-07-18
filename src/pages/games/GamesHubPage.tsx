@@ -1,12 +1,14 @@
 import { useNavigate } from "react-router-dom";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { Chess01Icon, PuzzleIcon, Award02Icon } from "@hugeicons/core-free-icons";
+import { Chess01Icon, PuzzleIcon, Award02Icon, HandFistIcon, Grid2X2Icon } from "@hugeicons/core-free-icons";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
 const GAMES = [
   { key: "chess", name: "Chess", icon: Chess01Icon, description: "Classic strategy. Play a coworker locally or challenge the AI." },
   { key: "tic-tac-toe", name: "Tic Tac Toe", icon: PuzzleIcon, description: "Quick and simple. Best of luck against our AI." },
+  { key: "rock-paper-scissors", name: "Rock Paper Scissors", icon: HandFistIcon, description: "Best of 3 rounds. Fast and easy to pick up." },
+  { key: "connect-four", name: "Connect Four", icon: Grid2X2Icon, description: "Drop discs and get four in a row before your opponent." },
 ];
 
 export default function GamesHubPage() {

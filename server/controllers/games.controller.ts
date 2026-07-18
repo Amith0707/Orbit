@@ -4,7 +4,7 @@ import { pathParam } from "../utils/params.js";
 import * as gamesService from "../services/games.service.js";
 import { AppError } from "../utils/app-error.js";
 
-const gameKeySchema = z.enum(["chess", "tic_tac_toe"]);
+const gameKeySchema = z.enum(["chess", "tic_tac_toe", "rock_paper_scissors", "connect_four"]);
 
 const createMatchSchema = z.object({
   mode: z.enum(["pvp", "pvai"]),
@@ -36,6 +36,8 @@ const chessMoveSchema = z.object({
   to: z.string().length(2),
   promotion: z.enum(["q", "r", "b", "n"]).optional(),
 });
+const rpsMoveSchema = z.object({ choice: z.enum(["rock", "paper", "scissors"]) });
+const connectFourMoveSchema = z.object({ column: z.number().int().min(0).max(6) });
 
 export async function handleMakeMove(req: Request, res: Response) {
   const gameKey = gameKeySchema.parse(pathParam(req, "gameKey"));
@@ -51,6 +53,20 @@ export async function handleMakeMove(req: Request, res: Response) {
   if (gameKey === "chess") {
     const move = chessMoveSchema.parse(req.body);
     const match = await gamesService.makeChessMove(matchId, req.user!.id, move);
+    res.json({ match });
+    return;
+  }
+
+  if (gameKey === "rock_paper_scissors") {
+    const { choice } = rpsMoveSchema.parse(req.body);
+    const match = await gamesService.makeRockPaperScissorsMove(matchId, req.user!.id, choice);
+    res.json({ match });
+    return;
+  }
+
+  if (gameKey === "connect_four") {
+    const { column } = connectFourMoveSchema.parse(req.body);
+    const match = await gamesService.makeConnectFourMove(matchId, req.user!.id, column);
     res.json({ match });
     return;
   }

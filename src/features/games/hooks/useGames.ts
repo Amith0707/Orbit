@@ -29,6 +29,22 @@ export function useChessMove(matchId: string) {
   });
 }
 
+export function useRpsMove(matchId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (choice: api.RpsChoice) => api.makeRpsMove(matchId, choice),
+    onSuccess: (match) => queryClient.setQueryData(["games", "match", matchId], match),
+  });
+}
+
+export function useConnectFourMove(matchId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (column: number) => api.makeConnectFourMove(matchId, column),
+    onSuccess: (match) => queryClient.setQueryData(["games", "match", matchId], match),
+  });
+}
+
 export function useLeaderboard(gameKey: GameKey) {
   return useQuery({ queryKey: ["games", "leaderboard", gameKey], queryFn: () => api.getLeaderboard(gameKey) });
 }

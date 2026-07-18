@@ -28,6 +28,8 @@ import MyProfilePage from "@/pages/profile/MyProfilePage";
 import GamesHubPage from "@/pages/games/GamesHubPage";
 import ChessGamePage from "@/pages/games/ChessGamePage";
 import TicTacToeGamePage from "@/pages/games/TicTacToeGamePage";
+import RockPaperScissorsGamePage from "@/pages/games/RockPaperScissorsGamePage";
+import ConnectFourGamePage from "@/pages/games/ConnectFourGamePage";
 import GameLeaderboardPage from "@/pages/games/GameLeaderboardPage";
 import AiBuddyPage from "@/pages/ai-buddy/AiBuddyPage";
 import WeeklyDigestPage from "@/pages/digest/WeeklyDigestPage";
@@ -78,6 +80,8 @@ const router = createBrowserRouter([
           { path: "/games/leaderboard", element: <GameLeaderboardPage /> },
           { path: "/games/chess", element: <ChessGamePage /> },
           { path: "/games/tic-tac-toe", element: <TicTacToeGamePage /> },
+          { path: "/games/rock-paper-scissors", element: <RockPaperScissorsGamePage /> },
+          { path: "/games/connect-four", element: <ConnectFourGamePage /> },
           { path: "/ai-buddy", element: <AiBuddyPage /> },
           { path: "/digest", element: <WeeklyDigestPage /> },
           { path: "/notifications", element: <NotificationsPage /> },

@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { Award02Icon, Chess01Icon, PuzzleIcon } from "@hugeicons/core-free-icons";
+import { Award02Icon, Chess01Icon, PuzzleIcon, HandFistIcon, Grid2X2Icon } from "@hugeicons/core-free-icons";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -88,12 +88,24 @@ export default function GameLeaderboardPage() {
               <TabsTrigger value="tic_tac_toe">
                 <HugeiconsIcon icon={PuzzleIcon} strokeWidth={2} className="size-3.5" /> Tic Tac Toe
               </TabsTrigger>
+              <TabsTrigger value="rock_paper_scissors">
+                <HugeiconsIcon icon={HandFistIcon} strokeWidth={2} className="size-3.5" /> Rock Paper Scissors
+              </TabsTrigger>
+              <TabsTrigger value="connect_four">
+                <HugeiconsIcon icon={Grid2X2Icon} strokeWidth={2} className="size-3.5" /> Connect Four
+              </TabsTrigger>
             </TabsList>
             <TabsContent value="chess">
               <LeaderboardList gameKey="chess" />
             </TabsContent>
             <TabsContent value="tic_tac_toe">
               <LeaderboardList gameKey="tic_tac_toe" />
+            </TabsContent>
+            <TabsContent value="rock_paper_scissors">
+              <LeaderboardList gameKey="rock_paper_scissors" />
+            </TabsContent>
+            <TabsContent value="connect_four">
+              <LeaderboardList gameKey="connect_four" />
             </TabsContent>
           </Tabs>
         </CardContent>
