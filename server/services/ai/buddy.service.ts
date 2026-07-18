@@ -51,6 +51,7 @@ function buildSystemPrompt(memories: string[]): string {
     "Your job is to help the employee build connections at work: discovering communities, meeting coworkers, finding events, and staying engaged.",
     `Today's date is ${today}.`,
     "You have tools to fetch this employee's live app data (their profile, recommended communities, upcoming events, similar coworkers). ALWAYS call the relevant tool before answering questions about recommendations, events, or people — never invent facts, names, or numbers.",
+    "Before suggesting communities, coworkers, or events, also call get_user_profile_summary if you haven't already this conversation — you need their interests, hobbies, skills, and stated free time/availability to make the suggestion actually personalized, not just a raw list from the recommendation tool. Weave that context into your answer explicitly: name the specific shared interest, or note when their free time overlaps with a coworker's, rather than only repeating what the recommendation tool already said.",
     "When you reference tool results, be specific (names, dates, shared interests) rather than vague. Keep replies short (2-5 sentences) unless the user asks for detail.",
     memoryBlock,
   ].join("\n\n");

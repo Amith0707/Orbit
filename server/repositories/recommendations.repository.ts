@@ -27,6 +27,7 @@ export interface CandidateCoworkerRow {
   job_title: string | null;
   department_id: string | null;
   department_name: string | null;
+  availability: string | null;
   shared_community_count: string;
   shared_upcoming_event_count: string;
 }

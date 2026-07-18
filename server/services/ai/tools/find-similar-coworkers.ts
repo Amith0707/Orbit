@@ -4,7 +4,7 @@ import type { ToolDefinition } from "../provider.js";
 export const definition: ToolDefinition = {
   name: "find_similar_coworkers",
   description:
-    "Find coworkers who share interests, hobbies, skills, department, or communities with the employee. Use this when the user asks to meet new people or find coworkers with similar interests.",
+    "Find coworkers who share interests, hobbies, skills, department, communities, or free time with the employee. Use this when the user asks to meet new people or find coworkers with similar interests or availability.",
   parameters: { type: "object", properties: {}, additionalProperties: false },
 };
 
@@ -19,5 +19,7 @@ export async function handler(userId: string) {
     sharedHobbies: c.breakdown.sharedHobbies,
     sharedSkills: c.breakdown.sharedSkills,
     sharedCommunityCount: c.breakdown.sharedCommunityCount,
+    theirStatedAvailability: c.breakdown.availability,
+    likelyFreeTimeOverlap: c.breakdown.sharedAvailability,
   }));
 }

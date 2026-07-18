@@ -19,6 +19,19 @@ function intersectByName(a: string[], b: string[]): string[] {
   return a.filter((n) => bLower.has(n.toLowerCase()));
 }
 
+// Availability is freeform text ("Weekday evenings", "Weekends"), not a structured
+// schedule, so this is a coarse heuristic for ranking only — the AI explanation step
+// gets both raw strings and reasons about them properly instead of trusting this alone.
+function hasOverlappingAvailability(a: string | null | undefined, b: string | null | undefined): boolean {
+  if (!a || !b) return false;
+  const words = (s: string) => new Set(s.toLowerCase().match(/[a-z]{4,}/g) ?? []);
+  const wordsA = words(a);
+  for (const word of words(b)) {
+    if (wordsA.has(word)) return true;
+  }
+  return false;
+}
+
 export interface TagOverlap {
   sharedInterests: string[];
   sharedHobbies: string[];
@@ -84,10 +97,13 @@ export async function scoreCommunityCandidates(userId: string, limit = 6): Promi
     };
   });
 
-  return scored
-    .filter((s) => s.score > 0)
-    .sort((a, b) => b.score - a.score)
-    .slice(0, limit);
+  // Don't filter out zero-score candidates: with sparse profile data (no tags/department
+  // set yet, or just one community in the whole workspace) everything can legitimately
+  // score 0, and the explanation step already knows how to write an honest, non-generic
+  // line for that case (see fallbackExplanation / the AI prompt in
+  // community-recommendations.service.ts). Filtering here would just hide real
+  // candidates behind an empty state instead.
+  return scored.sort((a, b) => b.score - a.score).slice(0, limit);
 }
 
 export interface CoworkerScoreResult {
@@ -105,6 +121,8 @@ export interface CoworkerScoreResult {
     departmentName: string | null;
     sharedCommunityCount: number;
     sharedUpcomingEventCount: number;
+    sharedAvailability: boolean;
+    availability: string | null;
   };
 }
 
@@ -132,12 +150,14 @@ export async function scoreCoworkerCandidates(userId: string, limit = 6): Promis
     const sameDepartment = Boolean(user?.department_id) && c.department_id === user?.department_id;
     const sharedCommunityCount = Number.parseInt(c.shared_community_count, 10);
     const sharedUpcomingEventCount = Number.parseInt(c.shared_upcoming_event_count, 10);
+    const sharedAvailability = hasOverlappingAvailability(user?.availability, c.availability);
 
     const score = clamp01(
       sharedTagCount * 0.15 +
         (sameDepartment ? 0.15 : 0) +
         Math.min(sharedCommunityCount, 3) * 0.1 +
-        Math.min(sharedUpcomingEventCount, 3) * 0.1
+        Math.min(sharedUpcomingEventCount, 3) * 0.1 +
+        (sharedAvailability ? 0.1 : 0)
     );
 
     return {
@@ -155,12 +175,14 @@ export async function scoreCoworkerCandidates(userId: string, limit = 6): Promis
         departmentName: c.department_name,
         sharedCommunityCount,
         sharedUpcomingEventCount,
+        sharedAvailability,
+        availability: c.availability,
       },
     };
   });
 
-  return scored
-    .filter((s) => s.score > 0)
-    .sort((a, b) => b.score - a.score)
-    .slice(0, limit);
+  // Same reasoning as scoreCommunityCandidates: don't hide real coworkers just because
+  // there's no shared tag/department/community signal yet. match-suggestions.service.ts's
+  // fallbackExplanation already handles the zero-overlap case honestly.
+  return scored.sort((a, b) => b.score - a.score).slice(0, limit);
 }

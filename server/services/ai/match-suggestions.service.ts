@@ -35,12 +35,16 @@ function fallbackExplanation(c: CoworkerScoreResult): string {
   const shared = [...c.breakdown.sharedInterests, ...c.breakdown.sharedHobbies, ...c.breakdown.sharedSkills];
   if (shared.length > 0) return `You both share an interest in ${shared.slice(0, 2).join(" and ")}.`;
   if (c.breakdown.sameDepartment) return `You're both in ${c.breakdown.departmentName ?? "the same department"}.`;
+  if (c.breakdown.sharedAvailability) return "You both tend to be free around the same time.";
   return "Someone new worth connecting with.";
 }
 
 const CACHE_HOURS = 24;
 
-async function generateExplanations(candidates: CoworkerScoreResult[]): Promise<Map<string, string>> {
+async function generateExplanations(
+  candidates: CoworkerScoreResult[],
+  viewerAvailability: string | null
+): Promise<Map<string, string>> {
   const prompt = candidates
     .map((c) => {
       const shared = [...c.breakdown.sharedInterests, ...c.breakdown.sharedHobbies, ...c.breakdown.sharedSkills];
@@ -52,6 +56,8 @@ async function generateExplanations(candidates: CoworkerScoreResult[]): Promise<
         `Shared interests/hobbies/skills: ${shared.join(", ") || "none listed"}`,
         `Communities in common: ${c.breakdown.sharedCommunityCount}`,
         `Upcoming events both are attending: ${c.breakdown.sharedUpcomingEventCount}`,
+        `Viewer's stated free time: ${viewerAvailability ?? "not specified"}`,
+        `This coworker's stated free time: ${c.breakdown.availability ?? "not specified"}`,
       ].join("\n");
     })
     .join("\n\n");
@@ -61,7 +67,7 @@ async function generateExplanations(candidates: CoworkerScoreResult[]): Promise<
       schema: explanationSchema,
       schemaName: "match_suggestions",
       system:
-        "For each coworker below, write ONE short, warm sentence explaining why the viewer would likely enjoy connecting with them. Use ONLY the facts given — never invent shared interests or details.",
+        "For each coworker below, write ONE short, warm sentence explaining why the viewer would likely enjoy connecting with them. Use ONLY the facts given — never invent shared interests or details. If their stated free time genuinely overlaps (e.g. both mention evenings, weekends, mornings), you may mention that too.",
       prompt,
       temperature: 0.7,
     });
@@ -97,7 +103,8 @@ export async function getMatchSuggestions(userId: string, forceRegenerate = fals
   const candidates = await scoreCoworkerCandidates(userId, 5);
   if (candidates.length === 0) return [];
 
-  const explanations = await generateExplanations(candidates);
+  const viewer = await findUserById(userId);
+  const explanations = await generateExplanations(candidates, viewer?.availability ?? null);
 
   const results: MatchSuggestion[] = [];
   for (const c of candidates) {
