@@ -15,8 +15,8 @@ export default function EventsPage() {
     <div className="mx-auto max-w-4xl space-y-6 p-6">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="font-heading text-xl font-semibold">Events</h1>
-          <p className="text-sm text-muted-foreground">See what's coming up, or plan something new.</p>
+          <h1 className="font-heading text-2xl">On the horizon</h1>
+          <p className="text-sm text-muted-foreground">Gatherings worth showing up for.</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => navigate("/events/create")}>

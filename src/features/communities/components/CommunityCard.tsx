@@ -10,17 +10,17 @@ export function CommunityCard({ community }: { community: Community }) {
 
   return (
     <Card className="cursor-pointer gap-3 transition-shadow hover:shadow-md" onClick={() => navigate(`/communities/${community.slug}`)}>
-      <div className="flex h-24 items-center justify-center bg-gradient-to-br from-muted to-secondary">
-        <HugeiconsIcon icon={UserGroupIcon} strokeWidth={1.5} className="size-8 text-muted-foreground" />
+      <div className="flex h-24 items-center justify-center bg-gradient-to-br from-secondary to-background">
+        <HugeiconsIcon icon={UserGroupIcon} strokeWidth={1.5} className="size-8 text-primary/70" />
       </div>
       <CardContent className="space-y-2">
         <div className="flex items-start justify-between gap-2">
-          <p className="font-heading text-sm font-medium">{community.name}</p>
+          <p className="font-heading text-base">{community.name}</p>
           {community.viewerRole && <Badge variant="secondary">Joined</Badge>}
         </div>
         {community.description && <p className="line-clamp-2 text-xs text-muted-foreground">{community.description}</p>}
         <div className="flex flex-wrap items-center gap-1.5">
-          <span className="text-xs text-muted-foreground">{community.memberCount ?? 0} members</span>
+          <span className="text-xs text-muted-foreground">{community.memberCount ?? 0} stars</span>
           {community.tags.slice(0, 2).map((tag) => (
             <Badge key={tag.id} variant="outline" className="text-[10px]">
               {tag.name}

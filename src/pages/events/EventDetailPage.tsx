@@ -13,7 +13,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { GradientAvatar } from "@/components/composite/GradientAvatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { getApiErrorMessage } from "@/lib/http/apiClient";
@@ -153,13 +153,13 @@ export default function EventDetailPage() {
         <CardContent className="space-y-2">
           {participants?.map((p) => (
             <div key={p.userId} className="flex items-center gap-2.5">
-              <Avatar size="sm">
-                <AvatarImage src={p.avatarUrl ?? undefined} alt={p.firstName} />
-                <AvatarFallback>
-                  {p.firstName[0]}
-                  {p.lastName[0]}
-                </AvatarFallback>
-              </Avatar>
+              <GradientAvatar
+                size="sm"
+                seed={p.userId}
+                src={p.avatarUrl}
+                initials={`${p.firstName[0]}${p.lastName[0]}`}
+                alt={p.firstName}
+              />
               <span className="text-sm">
                 {p.firstName} {p.lastName}
               </span>

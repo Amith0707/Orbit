@@ -26,14 +26,14 @@ export function BuddyPanel() {
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, y: 12, scale: 0.98 }}
       transition={{ duration: 0.15 }}
-      className="fixed right-6 bottom-24 z-50 flex h-[560px] w-96 max-w-[calc(100vw-3rem)] flex-col overflow-hidden rounded-3xl border border-border bg-card shadow-2xl"
+      className="fixed right-6 bottom-24 z-50 flex h-[560px] w-96 max-w-[calc(100vw-3rem)] flex-col overflow-hidden rounded-3xl border border-primary/25 bg-card shadow-2xl backdrop-blur-sm"
     >
       <div className="flex items-center justify-between border-b border-border px-4 py-3">
         <div className="flex items-center gap-2">
-          <div className="flex size-7 items-center justify-center rounded-full bg-ai-accent text-ai-accent-foreground">
+          <div className="orbit-glow-icon flex size-7 items-center justify-center rounded-full text-primary">
             <HugeiconsIcon icon={SparklesIcon} strokeWidth={2} className="size-3.5" />
           </div>
-          <p className="font-heading text-sm font-medium">AI Buddy</p>
+          <p className="font-heading text-base">AI Buddy</p>
         </div>
         <div className="flex items-center gap-0.5">
           <Button variant="ghost" size="icon-sm" aria-label="New chat" onClick={() => setConversationId(undefined)}>

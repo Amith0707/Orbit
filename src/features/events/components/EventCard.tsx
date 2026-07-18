@@ -8,38 +8,44 @@ import type { EventItem } from "../api/events";
 
 export function EventCard({ event }: { event: EventItem }) {
   const navigate = useNavigate();
+  const date = new Date(event.startsAt);
 
   return (
-    <Card className="cursor-pointer gap-3 transition-shadow hover:shadow-md" onClick={() => navigate(`/events/${event.id}`)}>
-      <CardContent className="space-y-2">
-        <div className="flex items-start justify-between gap-2">
-          <p className="font-heading text-sm font-medium">{event.title}</p>
-          {event.source === "ai_planner" && (
-            <Badge variant="outline" className="gap-1 border-ai-accent-border text-ai-accent">
-              <HugeiconsIcon icon={SparklesIcon} strokeWidth={2} className="size-3" /> AI planned
+    <Card className="cursor-pointer transition-shadow hover:shadow-md" onClick={() => navigate(`/events/${event.id}`)}>
+      <CardContent className="flex items-center gap-4">
+        <div className="w-12 shrink-0 text-center">
+          <p className="font-eyebrow text-[10px] text-primary">{format(date, "MMM")}</p>
+          <p className="font-heading text-2xl leading-none">{format(date, "d")}</p>
+        </div>
+        <div className="min-w-0 flex-1 space-y-1.5">
+          <div className="flex items-start justify-between gap-2">
+            <p className="truncate font-heading text-base">{event.title}</p>
+            {event.source === "ai_planner" && (
+              <Badge variant="outline" className="shrink-0 gap-1 border-ai-accent-border text-ai-accent">
+                <HugeiconsIcon icon={SparklesIcon} strokeWidth={2} className="size-3" /> AI charted
+              </Badge>
+            )}
+          </div>
+          <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+            <span className="flex items-center gap-1">
+              <HugeiconsIcon icon={Calendar01Icon} strokeWidth={2} className="size-3.5" />
+              {format(date, "h:mm a")}
+            </span>
+            {event.location && (
+              <span className="flex items-center gap-1">
+                <HugeiconsIcon icon={Location01Icon} strokeWidth={2} className="size-3.5" /> {event.location}
+              </span>
+            )}
+            <span className="flex items-center gap-1">
+              <HugeiconsIcon icon={UserMultiple02Icon} strokeWidth={2} className="size-3.5" /> {event.participantCount} going
+            </span>
+          </div>
+          {event.viewerRsvpStatus && (
+            <Badge variant="secondary" className="capitalize">
+              {event.viewerRsvpStatus}
             </Badge>
           )}
         </div>
-        <p className="line-clamp-2 text-xs text-muted-foreground">{event.description}</p>
-        <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-          <span className="flex items-center gap-1">
-            <HugeiconsIcon icon={Calendar01Icon} strokeWidth={2} className="size-3.5" />
-            {format(new Date(event.startsAt), "EEE, MMM d · h:mm a")}
-          </span>
-          {event.location && (
-            <span className="flex items-center gap-1">
-              <HugeiconsIcon icon={Location01Icon} strokeWidth={2} className="size-3.5" /> {event.location}
-            </span>
-          )}
-          <span className="flex items-center gap-1">
-            <HugeiconsIcon icon={UserMultiple02Icon} strokeWidth={2} className="size-3.5" /> {event.participantCount} going
-          </span>
-        </div>
-        {event.viewerRsvpStatus && (
-          <Badge variant="secondary" className="capitalize">
-            {event.viewerRsvpStatus}
-          </Badge>
-        )}
       </CardContent>
     </Card>
   );

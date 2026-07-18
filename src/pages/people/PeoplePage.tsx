@@ -4,7 +4,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { Search01Icon, User02Icon } from "@hugeicons/core-free-icons";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
-import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { GradientAvatar } from "@/components/composite/GradientAvatar";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/composite/EmptyState";
@@ -21,8 +21,8 @@ export default function PeoplePage() {
   return (
     <div className="mx-auto max-w-4xl space-y-8 p-6">
       <div>
-        <h1 className="font-heading text-xl font-semibold">People</h1>
-        <p className="text-sm text-muted-foreground">Meet your coworkers.</p>
+        <h1 className="font-heading text-2xl">The night's stars</h1>
+        <p className="text-sm text-muted-foreground">Everyone at Calfus is a star. Find the ones near yours.</p>
       </div>
 
       <MatchSuggestionsRow />
@@ -46,13 +46,12 @@ export default function PeoplePage() {
             {data.users.map((u) => (
               <Card key={u.id} className="cursor-pointer transition-shadow hover:shadow-md" onClick={() => navigate(`/people/${u.id}`)}>
                 <CardContent className="flex items-center gap-3">
-                  <Avatar>
-                    <AvatarImage src={u.avatarUrl ?? undefined} alt={u.firstName} />
-                    <AvatarFallback>
-                      {u.firstName[0]}
-                      {u.lastName[0]}
-                    </AvatarFallback>
-                  </Avatar>
+                  <GradientAvatar
+                    src={u.avatarUrl}
+                    seed={u.id}
+                    initials={`${u.firstName[0]}${u.lastName[0]}`}
+                    alt={u.firstName}
+                  />
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium">
                       {u.firstName} {u.lastName}

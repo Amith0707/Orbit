@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { GradientAvatar } from "@/components/composite/GradientAvatar";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { EmptyState } from "@/components/composite/EmptyState";
 import { useLeaderboard } from "@/features/games/hooks/useGames";
@@ -39,13 +39,12 @@ function LeaderboardList({ gameKey }: { gameKey: GameKey }) {
       {data.map((entry: LeaderboardEntry, i: number) => (
         <div key={entry.userId} className="flex items-center gap-3 rounded-xl border border-border p-3">
           <span className="w-5 text-center text-sm font-medium text-muted-foreground">{i + 1}</span>
-          <Avatar>
-            <AvatarImage src={entry.avatarUrl ?? undefined} alt={entry.firstName} />
-            <AvatarFallback>
-              {entry.firstName[0]}
-              {entry.lastName[0]}
-            </AvatarFallback>
-          </Avatar>
+          <GradientAvatar
+            seed={entry.userId}
+            src={entry.avatarUrl}
+            initials={`${entry.firstName[0]}${entry.lastName[0]}`}
+            alt={entry.firstName}
+          />
           <div className="flex-1">
             <p className="text-sm font-medium">
               {entry.firstName} {entry.lastName}

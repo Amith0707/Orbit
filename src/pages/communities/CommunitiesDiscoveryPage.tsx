@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { Search01Icon, Add01Icon, UserGroupIcon } from "@hugeicons/core-free-icons";
+import { Search01Icon, Add01Icon, UserGroupIcon, SparklesIcon } from "@hugeicons/core-free-icons";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -10,24 +10,40 @@ import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { useCommunities } from "@/features/communities/hooks/useCommunities";
 import { CommunityCard } from "@/features/communities/components/CommunityCard";
 import { RecommendedCommunitiesRow } from "@/features/ai-recommendations/components/RecommendedCommunitiesRow";
+import { useCommunityRecommendations } from "@/features/ai-recommendations/hooks/useRecommendations";
 
 export default function CommunitiesDiscoveryPage() {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebouncedValue(search);
   const { data, isPending } = useCommunities({ search: debouncedSearch || undefined, limit: 24 });
+  const { data: recommendations } = useCommunityRecommendations();
 
   return (
     <div className="mx-auto max-w-5xl space-y-8 p-6">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="font-heading text-xl font-semibold">Communities</h1>
-          <p className="text-sm text-muted-foreground">Find your people at Calfus.</p>
+          <h1 className="font-heading text-2xl">Constellations</h1>
+          <p className="text-sm text-muted-foreground">Groups of people, drawn together by what they love.</p>
         </div>
-        <Button onClick={() => navigate("/communities/create")}>
-          <HugeiconsIcon icon={Add01Icon} strokeWidth={2} /> Create community
+        <Button variant="outline" onClick={() => navigate("/communities/create")}>
+          <HugeiconsIcon icon={Add01Icon} strokeWidth={2} /> Form a constellation
         </Button>
       </div>
+
+      {recommendations && recommendations.length > 0 && (
+        <div className="flex items-center gap-3 rounded-2xl border border-primary/30 bg-card/70 px-4.5 py-3.5">
+          <div className="orbit-glow-icon flex size-8 shrink-0 items-center justify-center rounded-full text-primary">
+            <HugeiconsIcon icon={SparklesIcon} strokeWidth={2} className="size-4" />
+          </div>
+          <div>
+            <p className="text-sm font-semibold">
+              Your Buddy charted {recommendations.length} constellation{recommendations.length === 1 ? "" : "s"} for you
+            </p>
+            <p className="text-xs text-muted-foreground">Drawn from the interests on your profile.</p>
+          </div>
+        </div>
+      )}
 
       <RecommendedCommunitiesRow />
 

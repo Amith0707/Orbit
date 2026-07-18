@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { User02Icon, Settings02Icon, Shield02Icon, Logout02Icon } from "@hugeicons/core-free-icons";
-import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { GradientAvatar } from "@/components/composite/GradientAvatar";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -31,10 +31,12 @@ export function UserMenu() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger className="rounded-full outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50">
-        <Avatar>
-          <AvatarImage src={user.avatarUrl ?? undefined} alt={user.firstName} />
-          <AvatarFallback>{initials(user.firstName, user.lastName)}</AvatarFallback>
-        </Avatar>
+        <GradientAvatar
+          seed={user.id}
+          src={user.avatarUrl}
+          initials={initials(user.firstName, user.lastName)}
+          alt={user.firstName}
+        />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         <DropdownMenuGroup>

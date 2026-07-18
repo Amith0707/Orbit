@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/composite/EmptyState";
+import { getAvatarGradient } from "@/lib/gradientAvatar";
 import { useMyCommunities } from "../hooks/useCommunities";
 
 export function MyCommunitiesCard() {
@@ -15,8 +16,8 @@ export function MyCommunitiesCard() {
     <Card>
       <CardContent className="space-y-3">
         <div className="flex items-center justify-between">
-          <p className="flex items-center gap-1.5 font-heading text-sm font-semibold">
-            <HugeiconsIcon icon={UserGroupIcon} strokeWidth={2} className="size-4" /> My communities
+          <p className="flex items-center gap-1.5 font-heading text-base">
+            <HugeiconsIcon icon={UserGroupIcon} strokeWidth={2} className="size-4" /> Your constellations
           </p>
           <button onClick={() => navigate("/communities")} className="text-xs text-muted-foreground hover:text-foreground">
             Browse all
@@ -39,9 +40,15 @@ export function MyCommunitiesCard() {
                 onClick={() => navigate(`/communities/${community.slug}`)}
                 className="flex w-full items-center justify-between gap-2 rounded-xl border border-border p-3 text-left transition-colors hover:bg-muted"
               >
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium">{community.name}</p>
-                  <p className="text-xs text-muted-foreground">{community.memberCount ?? 0} members</p>
+                <div className="flex min-w-0 items-center gap-2.5">
+                  <span
+                    className="size-8 shrink-0 rounded-full"
+                    style={{ background: getAvatarGradient(community.id) }}
+                  />
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium">{community.name}</p>
+                    <p className="text-xs text-muted-foreground">{community.memberCount ?? 0} stars</p>
+                  </div>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
                   {community.viewerRole && community.viewerRole !== "member" && (
